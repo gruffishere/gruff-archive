@@ -125,7 +125,13 @@ Elle tutulan tek dosya budur. Her koleksiyon için şu alanlar bulunur:
 
 - **İndirme:** Her görsel bir kez indirilir. Sırasıyla şu kaynaklar denenir: orijinal URL → IPFS için `gateway.pinata.cloud` ve `ipfs.filebase.io` → `arweave.net` → OpenSea'nin önbellekteki görseli.
 - **Bilinen sorunlu kaynaklar:** phigures.art şu an "DEPLOYMENT_DISABLED" hatası veriyor, gruffters.gg de yanıt vermiyor. Bu iki koleksiyon OpenSea önbelleği yedeğiyle çalışır.
-- **İşleme:** Görseller `sharp` ile 480 px (thumb) ve 1600 px (large) webp'ye çevrilir. Animasyonlu GIF'ler animasyonlu webp olur. Video ise poster karesi ve 25 MB'ın altındaysa mp4 olarak saklanır.
+- **İşleme:** Durağan görseller `sharp` ile 480 px (thumb) ve 1600 px (large) webp'ye çevrilir.
+- **Hareketli görseller** (GIF, animasyonlu WebP/PNG) — 2026-11-04'te kullanıcı kararıyla:
+  - Thumb, ilk kareden 480 px'lik durağan bir webp'dir.
+  - Büyük görünüm, orijinal dosyanın birebir kopyasıdır; işin kendisi yeniden kodlanmaz.
+  - Orijinal dosya 24 MiB'ı aşarsa kopyalanmaz. Bu durumda büyük görünüm orijinal adresinden gösterilir; thumb yine yerel kalır.
+  - Bu kararın gerekçesi: animasyonlu webp ve MP4, grenli ve dither'lı işlerde dosyayı orijinal GIF'ten de büyük yapıyordu.
+- **Video:** 25 MB'ın altındaysa mp4 olarak saklanır.
 - **Önbellek:** Dosyalar içerik hash'iyle adlandırılır. Daha önce indirilmiş bir görsel yeniden indirilmez.
 - **On-chain işler (FCT, PHG, OVVN):**
   - Thumbnail: SVG varsa doğrudan kullanılır. Yalnızca HTML varsa (PHG) OpenSea önbelleğindeki görsel kullanılır.

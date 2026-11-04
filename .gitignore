@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+.superpowers/
+back-room/
+.wrangler/
+tmp/
+data/catalog.old/
+data/catalog.tmp/
+.dev.vars
+!.env.example
+*.tmp

@@ -1,0 +1,45 @@
+name: inventory
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      accept_drop:
+        description: 'Comma-separated collection slugs whose works/media drop to accept this run (e.g. a legitimate burn)'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run index
+        env:
+          OPENSEA_API_KEY: ${{ secrets.OPENSEA_API_KEY }}
+          ACCEPT_DROP: ${{ inputs.accept_drop }}
+      - name: Commit snapshot
+        run: |
+          git config user.name "gruff-archive-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --renormalize public/media
+          git add data public/media
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git commit -m "inventory: $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase --autostash origin "$GITHUB_REF_NAME"
+          git push

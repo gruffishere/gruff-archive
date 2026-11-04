@@ -20,7 +20,7 @@
 - Never counted as keepers/holders: `0x0000000000000000000000000000000000000000`, `0x000000000000000000000000000000000000dead`, Foundation market escrow `0xcda72070e455bb31c7690a170224ce43623d0b6f`, and the artist wallet.
 - Accession number format: `GRF.<YY>.<CODE>.<token>`; token zero-padded to `max(3, digits of the largest token id)`; collections with exactly one configured token id get no token suffix (e.g. `GRF.25.366`).
 - Paths: config `config/collections.yaml`; raw caches `data/raw/`; outputs `data/catalog/`; media `public/media/` served as `/media/...`.
-- Media: images → `<hash>-t.webp` (fit inside 480) and `<hash>-l.webp` (fit inside 1600); SVG/HTML stored as-is; video stored only if ≤ 25 MB.
+- Media: static images → `<hash>-t.webp` (fit inside 480) and `<hash>-l.webp` (fit inside 1600); animated images (GIF / animated WebP / APNG) → static first-frame `<hash>-t.webp` thumb + the original file copied byte-for-byte as `<hash>.<ext>` for the large view, or, if the original exceeds 24 MiB, no local large and `remote: <source url>` (user decision 2026-11-04); SVG/HTML stored as-is; video stored only if ≤ 25 MB.
 - Secrets never enter git. `back-room/` and `.superpowers/` are git-ignored.
 - Base chain and other wallets are out of scope.
 - Commit messages end with: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
@@ -1208,7 +1208,7 @@ const listing = (tokenId: string, value: string, amount = '1'): OsRawListing => 
 describe('normalizeOsEvent', () => {
   it('maps a sale', () => {
     expect(normalizeOsEvent(sale, C)).toEqual({
-      id: 'os:0xO1:2:sale',
+      id: 'os:0xO1:0xt1:2:sale',
       kind: 'sale',
       contract: C,
       tokenId: '2',
@@ -1447,7 +1447,8 @@ export function normalizeOsEvent(e: OsRawEvent, contract: Address): ArchiveEvent
   const txHash = e.transaction ? e.transaction.toLowerCase() : null;
   const kind = isSale ? 'sale' : 'listed';
   return {
-    id: `os:${e.order_hash ?? txHash}:${nft.identifier}:${kind}`,
+    // sales carry the tx hash too: one ERC-1155 listing can be filled by several buyers under one order_hash
+    id: isSale ? `os:${e.order_hash ?? ''}:${txHash ?? ''}:${nft.identifier}:sale` : `os:${e.order_hash ?? txHash}:${nft.identifier}:listed`,
     kind,
     contract,
     tokenId: String(nft.identifier),

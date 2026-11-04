@@ -1,0 +1,309 @@
+<!doctype html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'/><style>html,body{margin:0;padding:0;background:#000;overflow:hidden}canvas{display:block;position:absolute;top:0;left:0;right:0;bottom:0;margin:auto}</style></head><body><script>// =============================================================
+// PHIGURES p5 SHIM
+// =============================================================
+// Minimal p5.js-compatible runtime, just enough to host anatomy.js
+// without the ~1 MB upstream library. anatomy.js calls a small,
+// known surface of p5 — this file reimplements that surface in
+// terms of raw Canvas 2D operations.
+//
+// Goal: drop-in replacement for p5.min.js inside the Phigures
+// on-chain HTML bundle. Final size target: ~5–8 KB minified,
+// vs. ~1 MB for the upstream build. Reduces on-chain deploy
+// gas from ~2–5 ETH to ~0.05–0.1 ETH.
+//
+// Surface implemented (every p5 API anatomy.js actually touches):
+//   constructor      new p5(setupFn)
+//   canvas setup     createCanvas, pixelDensity, resizeCanvas,
+//                    noLoop, setup, draw, windowResized
+//   drawing state    fill, noFill, stroke, noStroke, strokeWeight
+//   shapes           background, rect, circle, ellipse,
+//                    beginShape, vertex, endShape, CLOSE
+//   colour           color() → P5Color { setAlpha, toString }
+//   pixels           loadPixels, pixels, updatePixels
+//   transforms       push, pop, translate, rotate, scale
+//   raw canvas       drawingContext (canvas2d ctx)
+//   properties       width, height, windowWidth, windowHeight
+//   constants        PI, TWO_PI, HALF_PI, CLOSE, CENTER, CORNER
+//
+// Anything anatomy.js doesn't call is intentionally NOT shimmed —
+// every byte counts on-chain.
+// =============================================================
+(function (global) {
+  'use strict';
+
+  // --------------------------------------------------------
+  // P5Color — minimal colour object with setAlpha + toString.
+  // anatomy.js only uses this for the contour stroke colour.
+  // --------------------------------------------------------
+  function P5Color(value) {
+    this._r = 0; this._g = 0; this._b = 0; this._a = 255;
+    if (typeof value === 'string' && value.charAt(0) === '#') {
+      const h = value.length === 4
+        ? value.charAt(1) + value.charAt(1) +
+          value.charAt(2) + value.charAt(2) +
+          value.charAt(3) + value.charAt(3)
+        : value.slice(1);
+      this._r = parseInt(h.slice(0, 2), 16);
+      this._g = parseInt(h.slice(2, 4), 16);
+      this._b = parseInt(h.slice(4, 6), 16);
+    }
+  }
+  P5Color.prototype.setAlpha = function (a) { this._a = a; };
+  P5Color.prototype.toString = function () {
+    return 'rgba(' + this._r + ',' + this._g + ',' + this._b +
+           ',' + (this._a / 255) + ')';
+  };
+
+  // --------------------------------------------------------
+  // p5 — main constructor.
+  // Usage matches upstream: new p5(function (p) { p.setup = ... })
+  // --------------------------------------------------------
+  function p5(sketchFn) {
+    const self = this;
+
+    // ------- public constants -------
+    self.PI       = Math.PI;
+    self.TWO_PI   = Math.PI * 2;
+    self.HALF_PI  = Math.PI / 2;
+    self.QUARTER_PI = Math.PI / 4;
+    self.CLOSE    = 'close';
+    self.CENTER   = 'center';
+    self.CORNER   = 'corner';
+
+    // ------- viewport (best-effort) -------
+    self.windowWidth  = (typeof window !== 'undefined' && window.innerWidth)  || 800;
+    self.windowHeight = (typeof window !== 'undefined' && window.innerHeight) || 800;
+
+    // ------- internal state -------
+    self._density    = 1;
+    self._fillOn     = true;
+    self._strokeOn   = true;
+    self._fillStyle  = '#ffffff';
+    self._strokeStyle = '#000000';
+    self._strokeWeight = 1;
+    self._shapePath  = null;       // active beginShape buffer
+    self._looping    = true;
+    self._setupDone  = false;
+    self._imageData  = null;
+
+    self.canvas         = null;
+    self.drawingContext = null;
+    self.width          = 0;
+    self.height         = 0;
+    self.pixels         = null;
+
+    // ------- canvas setup -------
+    self.createCanvas = function (w, h) {
+      const cv = document.createElement('canvas');
+      cv.width  = w * self._density;
+      cv.height = h * self._density;
+      cv.style.width  = w + 'px';
+      cv.style.height = h + 'px';
+      self.canvas         = cv;
+      self.drawingContext = cv.getContext('2d');
+      self.width          = w;
+      self.height         = h;
+      if (self._density !== 1) {
+        self.drawingContext.scale(self._density, self._density);
+      }
+      // Auto-attach to document.body — matches real p5 behaviour.
+      // .parent() lets callers re-attach to a different element later.
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.appendChild(cv);
+      }
+      return {
+        canvas: cv,
+        parent: function (elem) {
+          const target = typeof elem === 'string'
+            ? document.getElementById(elem)
+            : elem;
+          if (target && target !== cv.parentNode) {
+            target.appendChild(cv);
+          }
+        },
+      };
+    };
+
+    self.resizeCanvas = function (w, h) {
+      if (!self.canvas) return;
+      self.canvas.width  = w * self._density;
+      self.canvas.height = h * self._density;
+      self.canvas.style.width  = w + 'px';
+      self.canvas.style.height = h + 'px';
+      self.width  = w;
+      self.height = h;
+      if (self._density !== 1) {
+        self.drawingContext.scale(self._density, self._density);
+      }
+    };
+
+    self.pixelDensity = function (d) {
+      if (typeof d === 'undefined') return self._density;
+      self._density = d;
+      if (self.canvas) {
+        // Re-apply density to the existing canvas.
+        const w = self.width, h = self.height;
+        self.canvas.width  = w * d;
+        self.canvas.height = h * d;
+        self.drawingContext.setTransform(d, 0, 0, d, 0, 0);
+      }
+    };
+
+    self.noLoop = function () { self._looping = false; };
+    self.loop   = function () { self._looping = true;  };
+
+    // ------- drawing-state setters -------
+    self.fill = function (v) {
+      self._fillOn = true;
+      self._fillStyle = (typeof v === 'object' && v && v.toString)
+        ? v.toString()
+        : v;
+    };
+    self.noFill  = function () { self._fillOn = false; };
+    self.stroke  = function (v) {
+      self._strokeOn = true;
+      self._strokeStyle = (typeof v === 'object' && v && v.toString)
+        ? v.toString()
+        : v;
+    };
+    self.noStroke = function () { self._strokeOn = false; };
+    self.strokeWeight = function (w) { self._strokeWeight = w; };
+
+    self.color = function (v) { return new P5Color(v); };
+
+    // ------- shape drawing -------
+    function applyStyles() {
+      const ctx = self.drawingContext;
+      if (self._fillOn)   ctx.fillStyle   = self._fillStyle;
+      if (self._strokeOn) {
+        ctx.strokeStyle = self._strokeStyle;
+        ctx.lineWidth   = self._strokeWeight;
+      }
+    }
+    function paint() {
+      const ctx = self.drawingContext;
+      if (self._fillOn)   ctx.fill();
+      if (self._strokeOn) ctx.stroke();
+    }
+
+    self.background = function (col) {
+      const ctx = self.drawingContext;
+      ctx.save();
+      ctx.fillStyle = (typeof col === 'object' && col && col.toString)
+        ? col.toString()
+        : col;
+      ctx.fillRect(0, 0, self.width, self.height);
+      ctx.restore();
+    };
+
+    self.rect = function (x, y, w, h) {
+      const ctx = self.drawingContext;
+      applyStyles();
+      if (self._fillOn)   ctx.fillRect(x, y, w, h);
+      if (self._strokeOn) ctx.strokeRect(x, y, w, h);
+    };
+
+    self.circle = function (x, y, d) {
+      const ctx = self.drawingContext;
+      applyStyles();
+      ctx.beginPath();
+      ctx.arc(x, y, d / 2, 0, Math.PI * 2);
+      paint();
+    };
+
+    self.ellipse = function (x, y, w, h) {
+      const ctx = self.drawingContext;
+      applyStyles();
+      ctx.beginPath();
+      // canvas2d ellipse: rx + ry are radii; p5 ellipse: w + h are full size.
+      ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2);
+      paint();
+    };
+
+    self.beginShape = function () {
+      self._shapePath = [];
+    };
+    self.vertex = function (x, y) {
+      if (self._shapePath) self._shapePath.push([x, y]);
+    };
+    self.endShape = function (mode) {
+      if (!self._shapePath || self._shapePath.length === 0) {
+        self._shapePath = null;
+        return;
+      }
+      const ctx = self.drawingContext;
+      applyStyles();
+      ctx.beginPath();
+      const pts = self._shapePath;
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) {
+        ctx.lineTo(pts[i][0], pts[i][1]);
+      }
+      if (mode === self.CLOSE) ctx.closePath();
+      paint();
+      self._shapePath = null;
+    };
+
+    // ------- transforms -------
+    self.push      = function () { self.drawingContext.save(); };
+    self.pop       = function () { self.drawingContext.restore(); };
+    self.translate = function (x, y) { self.drawingContext.translate(x, y); };
+    self.rotate    = function (a)    { self.drawingContext.rotate(a); };
+    self.scale     = function (s, sy) {
+      self.drawingContext.scale(s, typeof sy === 'undefined' ? s : sy);
+    };
+
+    // ------- pixel access (used for the grain overlay) -------
+    self.loadPixels = function () {
+      const ctx = self.drawingContext;
+      self._imageData = ctx.getImageData(
+        0, 0, self.canvas.width, self.canvas.height
+      );
+      self.pixels = self._imageData.data;
+    };
+    self.updatePixels = function () {
+      if (self._imageData) {
+        self.drawingContext.putImageData(self._imageData, 0, 0);
+      }
+    };
+
+    // ------- math helpers (occasionally referenced via p.) -------
+    self.cos = Math.cos;
+    self.sin = Math.sin;
+    self.atan2 = Math.atan2;
+    self.floor = Math.floor;
+    self.abs = Math.abs;
+    self.min = Math.min;
+    self.max = Math.max;
+    self.sqrt = Math.sqrt;
+
+    // ------- lifecycle hand-off -------
+    // Run the user's sketch function, which assigns p.setup / p.draw / etc.
+    sketchFn(self);
+
+    // Invoke setup immediately (p5 normally waits for DOM ready, but
+    // our scripts run after DOMContentLoaded already via inline order).
+    if (typeof self.setup === 'function') {
+      self.setup();
+      self._setupDone = true;
+    }
+    if (typeof self.draw === 'function') {
+      self.draw();
+      // No requestAnimationFrame loop — anatomy.js calls noLoop() and
+      // produces a single deterministic frame. If you ever need a loop,
+      // call self.loop() before setup and we'd wire RAF here.
+    }
+
+    // Window-resize hook (optional, anatomy.js sometimes provides one).
+    if (typeof window !== 'undefined' && typeof self.windowResized === 'function') {
+      window.addEventListener('resize', function () {
+        self.windowWidth  = window.innerWidth;
+        self.windowHeight = window.innerHeight;
+        self.windowResized();
+      });
+    }
+  }
+
+  global.p5 = p5;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script><script>window.tokenData={hash:'0x79bc540d0a7030658e0cfd5e423ce0e1e67d268a4d3f9512dce7b4e373c46bb1',staticHash:'0xc95f002a113c5acfa07c049bfe936f1479c2077c19b891ee90ab6d451a5d95c8',dynamicHash:'0x79bc540d0a7030658e0cfd5e423ce0e1e67d268a4d3f9512dce7b4e373c46bb1',tokenId:209};</script><script>!function(t){"use strict";const o=1.6180339887,e=1/o,n=o*o,r=e*e,i=r*e,l=.14589803376831154,a=l*e,s=.03444185375606754,c=l*l,u=o/2,f=n+r,h=2*Math.PI,g="#fe0000",d="#0101ef",p="#fcb913",m="#0a0a0a",y="#f0f0f0",b="#efdfc8",x=[{id:"RED_FIELD",bg:g,accent:m,splat:y,light:!1,pool:[g,m,y,d,p]},{id:"BLUE_FIELD",bg:d,accent:m,splat:y,light:!1,pool:[d,m,y,g,p]},{id:"YELLOW_FIELD",bg:p,accent:m,splat:y,light:!0,pool:[p,m,y,g,d]},{id:"CREAM_FIELD",bg:b,accent:m,splat:y,light:!0,pool:[b,m,g,d,p]},{id:"BLACK_RED",bg:m,accent:g,splat:y,light:!1,pool:[m,g,y,d,p]},{id:"BLACK_YELLOW",bg:m,accent:p,splat:y,light:!1,pool:[m,p,y,g,d]},{id:"CREAM_RED",bg:b,accent:g,splat:m,light:!0,pool:[b,g,m,d,p]},{id:"CREAM_BLUE",bg:b,accent:d,splat:m,light:!0,pool:[b,d,m,g,p]}],M=t=>parseInt(t,16),w=(t,o)=>M(t[2*o])<<4|M(t[2*o+1]);function k(t){const o=t.replace("#","");return"#"+(255-parseInt(o.slice(0,2),16)).toString(16).padStart(2,"0")+(255-parseInt(o.slice(2,4),16)).toString(16).padStart(2,"0")+(255-parseInt(o.slice(4,6),16)).toString(16).padStart(2,"0")}function W(t){return t.core+t.build+t.motion+t.hue+t.span+t.field}function B(t,o){const e=t.length>>1;return w(t,(o%e+e)%e)}function S(t){let o=2166136261;for(let e=0;e<t.length;e++)o^=t.charCodeAt(e),o=Math.imul(o,16777619)>>>0;return o>>>0}class Random{constructor(t){this.useA=!1;const o=function(t){let o=parseInt(t.substring(0,8),16),e=parseInt(t.substring(8,16),16),n=parseInt(t.substring(16,24),16),r=parseInt(t.substring(24,32),16);return function(){o|=0,e|=0,n|=0,r|=0;let t=(o+e|0)+r|0;return r=r+1|0,o=e^e>>>9,e=n+(n<<3)|0,n=n<<21|n>>>11,n=n+t|0,(t>>>0)/4294967296}};this.prngA=o(t.substring(0,32)),this.prngB=o(t.substring(32,64));for(let t=0;t<1e6;t+=2)this.prngA(),this.prngB()}random_dec(){return this.useA=!this.useA,this.useA?this.prngA():this.prngB()}random_num(t,o){return t+(o-t)*this.random_dec()}random_int(t,o){return Math.floor(this.random_num(t,o+1))}random_bool(t){return this.random_dec()<t}random_choice(t){return t[this.random_int(0,t.length-1)]}}function L(t){return 255&Math.floor((t+1)*e*256%256)}function R(t){const o=(t||"").trim().toLowerCase().replace(/^0x/,"");if(/^[0-9a-f]{64}$/.test(o))return o;if(/^[0-9a-f]{40}$/.test(o)){let t="";for(let e=0;t.length<24;e++)t+=S(o+"::expand::"+e).toString(16).padStart(8,"0");return o+t.slice(0,24)}const e=(t||"").trim().toLowerCase();let n="";for(let t=0;n.length<64;t++)n+=S(e+"::"+t).toString(16).padStart(8,"0");return n.slice(0,64)}function C(t){return{core:t.slice(0,4),build:t.slice(4,12),motion:t.slice(12,20),hue:t.slice(20,28),span:t.slice(28,36),field:t.slice(36,40)}}function I(t){return{paletteIdx:(w(t.hue,0)>>4)%x.length,colorCount:J(w(t.motion,3)^L(40)),atmo:P(t)}}function P(t){const o=(o,e)=>w(t[o],e),n=o("span",0)^L(50),i=o("core",0)^L(53),l=o("field",0)^L(54),a=o("field",1)^L(55),s=o("core",1)^L(56),c=o("hue",1)^L(57),u=o("hue",2)^L(58),g=o("hue",3)^L(66),d=o("span",1)^L(51),p=o("span",2)^L(52),m=o("build",0)^L(59),y=o("motion",0)^L(63),b=o("motion",1)^L(64),x=o("motion",2)^L(65),M=o("core",0)^L(67),k=o("motion",3)^L(68),W=o("hue",3)^L(69),B=o("build",1)^L(70),S=o("build",2)^L(71),R=o("build",3)^L(72),C=o("field",0)^L(73),I=o("field",1)^L(74),P=o("motion",0)^L(75),T=o("motion",1)^L(76),E=o("motion",2)^L(77),D=function(t){let o=t/256*_;for(let t=0;t<v.length;t++)if(o-=v[t],o<0)return A[t];return A[0]}(s);return{glowU:$(n,0,e),figureFillMode:D,regionFillModes:{head:D,torso:D,arm:D,leg:D},grainAmt:$(i,0,r),bgStyle:H(l),bgAccentB:a,contourB:c,checkerSubType:["square","vertical","horizontal"][u%3],truchetColorByte:g,eye:{on:d/256<r,angleByte:p,radialByte:m},ribbon:{on:y/256<r,phase:1&b,colorByte:x},stripeRayDirByte:M,rings:{count:3+Math.floor(B/256*f),colorOffset:S},diagSplit:{dirByte:R},jointWedges:{anchorIdx:C%4,count:3+Math.floor(I/256*f),spanRadians:j(P),startAngle:$(T,0,h),colorOffset:E},rareMode:U(k,W,t.core+t.build+t.motion+t.hue+t.span+t.field)}}const T=["scatter","skeleton","inverted","mono"];function U(t,o,e){const n=function(t){const o=new Map;let e=0;for(const n of t){const t=(o.get(n)||0)+1;o.set(n,t),t>e&&(e=t)}return e/t.length}(e);return t/256<s||n>.5?T[o%T.length]:"none"}const A=["solid","truchet","voronoi","checker"],v=[1,e,r,i],_=v.reduce((t,o)=>t+o,0);const E=[1,e,r,i],D=E.reduce((t,o)=>t+o,0);const F=[1,e,r,i,l,a,a*e,s],Y=F.reduce((t,o)=>t+o,0);function H(t){let o=t/256*Y;for(let t=0;t<F.length;t++)if(o-=F[t],o<0)return t;return 0}const K=[h,Math.PI,Math.PI/2],O=[1,e,r],X=O.reduce((t,o)=>t+o,0);function j(t){let o=t/256*X;for(let t=0;t<O.length;t++)if(o-=O[t],o<0)return K[t];return K[0]}const z=[1,e,r,i,l],q=z.reduce((t,o)=>t+o,0);function J(t){let o=t/256*q;for(let t=0;t<z.length;t++)if(o-=z[t],o<0)return 5-t;return 1}const $=(t,o,e)=>o+t/255*(e-o),G=(t,o,e)=>o*Math.pow(e/o,t/255);function V(t){const o=(o,e)=>w(t[o],e),i=$(o("build",0),1,n),l=$(o("build",1),r,u),a=$(o("build",2),r,u),s=$(o("core",0),-r,r),f=$(o("hue",3),.5*-r,.5*r),h=$(o("build",3),r,e),g=$(o("core",1),-Math.PI/2,Math.PI/2),d=$(o("core",2),0,c),p=Z(t,"arm","L",o("motion",0),o("motion",1),o("span",0),o("span",1),o("hue",1)),m=Z(t,"arm","R",o("motion",2)^L(24),o("motion",3)^L(25),o("span",0)^L(26),o("span",1)^L(27),o("hue",1)^L(28)),y=Z(t,"leg","L",o("motion",0)^L(29),o("motion",1)^L(30),o("span",2),o("span",3),o("hue",2)),b=Z(t,"leg","R",o("motion",2)^L(31),o("motion",3)^L(32),o("span",2)^L(33),o("span",3)^L(34),o("hue",2)^L(35));return{head:{sizeU:h,angle:g,neckOverlapU:d},torso:{lengthU:i,baseWU:l,tipWU:a,tilt:s,curveU:f},armL:{...p,hand:N(t,0)},armR:{...m,hand:N(t,1)},legL:{...y,foot:Q(t,0)},legR:{...b,foot:Q(t,1)}}}function N(t,i){const l=(o,e)=>w(t[o],e),a=6*i,s=L(a+0),c=L(a+1),u=L(a+2),h=L(a+3),g=L(a+4),d=L(a+5),p=255&(l("field",0)^s),m=255&(l("field",0)^l("hue",1)^c),y=255&(l("motion",0)^l("hue",1)^u),b=255&(l("motion",1)^l("field",0)^h),x=255&(l("span",0)^l("field",0)^g),M=255&(l("span",1)^l("hue",1)^d);return{fingerCount:Math.floor($(p,0,2*f)),fingerLength:$(m,e,n),fingerSpread:$(y,0,Math.PI*r),fingerCurl:$(b,2*-r,2*r),palmSize:$(x,r,e),wristExt:$(M,0,o-1)}}function Q(t,i){const l=(o,e)=>w(t[o],e),a=12+6*i,s=L(a+0),c=L(a+1),u=L(a+2),h=L(a+3),g=L(a+4),d=L(a+5),p=255&(l("field",1)^s),m=255&(l("field",1)^l("hue",2)^c),y=255&(l("motion",2)^l("hue",2)^u),b=255&(l("motion",3)^l("field",1)^h),x=255&(l("span",2)^l("field",1)^g),M=255&(l("span",3)^l("hue",2)^d);return{soleLength:$(p,e,n),soleWidth:$(m,e,o),footRot:$(y,-Math.PI*e/2,Math.PI*e/2),toeCount:Math.floor($(b,0,f+2)),toeLength:$(x,r,o),toeSpread:$(M,0,2*r)}}function Z(t,n,i,a,s,c,f,g){const d="leg"===n,p=$(a,0,h),m=$(s,-Math.PI,Math.PI),y=G(c,e,o),b=G(f,e,o),x=d?$(g,r,u*e):$(g,l,r),M=255&(a^g^158),w=255&(c^f^85),k=255&(s^g^199),W=$(255&(a^s^60),e,1),B=$(M,e,o),S=$(w,e,1),L=$(k,e,u),R=x*W,C=R*B,I=C*S;return d?{hipAngle:p,kneeAngle:m,thighLenU:y,thighBaseWU:x,thighTipWU:R,calfLenU:b,calfBaseWU:C,calfTipWU:I,endScale:L}:{shoulderAngle:p,elbowAngle:m,upperLenU:y,upperBaseWU:x,upperTipWU:R,foreLenU:b,foreBaseWU:C,foreTipWU:I,endScale:L}}function tt(t,o){const{U:e,cx:n,cy:a}=t,s=e*o.torso.lengthU,c=e*o.torso.baseWU,u=e*o.torso.tipWU,f=o.torso.tilt,h=.5*s,g=Math.sin(f),d=Math.cos(f),p={x:n-g*h,y:a-d*h},m={x:n+g*h,y:a+d*h},y=-d,b=.5*r,x={x:p.x+y*c*r+g*s*b,y:p.y+g*c*r+d*s*b},M={x:p.x-y*c*r+g*s*b,y:p.y-g*c*r+d*s*b},w={x:m.x+y*u*i-g*s*l,y:m.y+g*u*i-d*s*l},k={x:m.x-y*u*i-g*s*l,y:m.y-g*u*i-d*s*l},W={x:p.x,y:p.y},B=e*o.head.sizeU,S=B-e*o.head.neckOverlapU,L={x:W.x-g*S,y:W.y-d*S},R=ot(x,o.armL,e,"arm"),C=ot(M,o.armR,e,"arm"),I=ot(w,o.legL,e,"leg"),P=ot(k,o.legR,e,"leg");return{torso:{x1:p.x,y1:p.y,x2:m.x,y2:m.y,baseW:c,tipW:u,curve:e*(o.torso.curveU||0)},head:{x:L.x,y:L.y,r:B,angle:o.head.angle,pearness:o.head.pearness||0,topPoint:o.head.topPoint||0,bottomPoint:o.head.bottomPoint||0},neck:W,shoulderL:x,shoulderR:M,hipL:w,hipR:k,armL:R,armR:C,legL:I,legR:P}}function ot(t,o,e,n){const r="leg"===n,i=r?o.hipAngle:o.shoulderAngle,l=e*(r?o.thighLenU:o.upperLenU),a=e*(r?o.thighBaseWU:o.upperBaseWU),s=e*(r?o.thighTipWU:o.upperTipWU),c=r?o.kneeAngle:o.elbowAngle,u=e*(r?o.calfLenU:o.foreLenU),f=e*(r?o.calfBaseWU:o.foreBaseWU),h=e*(r?o.calfTipWU:o.foreTipWU),g={x:t.x+Math.cos(i)*l,y:t.y+Math.sin(i)*l},d=i+c;return{kind:n,root:t,elbow:g,tip:{x:g.x+Math.cos(d)*u,y:g.y+Math.sin(d)*u},upperBaseW:a,upperTipW:s,foreBaseW:f,foreTipW:h,tipAngle:d,endScale:o.endScale||1,hand:o.hand||null,foot:o.foot||null}}function et(t,o,e,n){const i=t.cx,l=t.cy,a=[],s=(t,o,e)=>a.push({x:t,y:o,r:e||0});s(o.torso.x1,o.torso.y1,.5*o.torso.baseW),s(o.torso.x2,o.torso.y2,.5*o.torso.tipW),s(o.head.x,o.head.y,o.head.r);for(const e of[o.armL,o.armR,o.legL,o.legR])s(e.root.x,e.root.y,.5*e.upperBaseW),s(e.elbow.x,e.elbow.y,.5*Math.max(e.upperTipW,e.foreBaseW)),s(e.tip.x,e.tip.y,.5*e.foreTipW+t.U*r/2);let c=0;for(const t of a){const o=t.x-i,e=t.y-l,n=Math.sqrt(o*o+e*e)+t.r;n>c&&(c=n)}if(c<1)return;let u=1;if(c>e?u=e/c:n&&c<n&&(u=n/c),1===u)return;const f=t=>{t.x=i+(t.x-i)*u,t.y=l+(t.y-l)*u};f(o.head),o.head.r*=u,o.torso.x1=i+(o.torso.x1-i)*u,o.torso.y1=l+(o.torso.y1-l)*u,o.torso.x2=i+(o.torso.x2-i)*u,o.torso.y2=l+(o.torso.y2-l)*u,o.torso.baseW*=u,o.torso.tipW*=u;for(const t of[o.armL,o.armR,o.legL,o.legR])f(t.root),f(t.elbow),f(t.tip),t.upperBaseW*=u,t.upperTipW*=u,t.foreBaseW*=u,t.foreTipW*=u;t.U*=u}function nt(t,o,e,n,r,i,l,a,s){s=ht(t,.5*(o+n),.5*(e+r),s);const c=n-o,u=r-e,f=Math.sqrt(c*c+u*u);if(f<1)return;const h=.5*(o+n)+-u/f*(a||0),g=.5*(e+r)+c/f*(a||0),d=[],p=[];for(let t=0;t<=24;t++){const a=t/24,s=(1-a)*(1-a)*o+2*(1-a)*a*h+a*a*n,c=(1-a)*(1-a)*e+2*(1-a)*a*g+a*a*r,u=2*(1-a)*(h-o)+2*a*(n-h),f=2*(1-a)*(g-e)+2*a*(r-g),m=Math.sqrt(u*u+f*f);if(m<1e-6)continue;const y=-f/m,b=u/m,x=i*(1-a)+l*a;d.push({x:s+y*x*.5,y:c+b*x*.5}),p.push({x:s-y*x*.5,y:c-b*x*.5})}if("undefined"==typeof Path2D)return function(t,o,e,n){const r=t.p.drawingContext;if(!r)return;r.beginPath(),r.moveTo(o[0].x,o[0].y);for(let t=1;t<o.length;t++)r.lineTo(o[t].x,o[t].y);for(let t=e.length-1;t>=0;t--)r.lineTo(e[t].x,e[t].y);r.closePath(),lt(t,n)}(t,d,p,s);const m=new Path2D;m.moveTo(d[0].x,d[0].y);for(let t=1;t<d.length;t++)m.lineTo(d[t].x,d[t].y);for(let t=p.length-1;t>=0;t--)m.lineTo(p[t].x,p[t].y);m.closePath();let y=1/0,b=1/0,x=-1/0,M=-1/0;for(const t of[d,p])for(const o of t)o.x<y&&(y=o.x),o.y<b&&(b=o.y),o.x>x&&(x=o.x),o.y>M&&(M=o.y);it(t,m,{minX:y,minY:b,maxX:x,maxY:M},s)}function rt(t,o,e,n,r){if(n<.5)return;r=ht(t,o,e,r);const i=t.p.drawingContext;if(!i)return;if("undefined"==typeof Path2D)return i.beginPath(),i.arc(o,e,n,0,h),i.closePath(),void lt(t,r);const l=new Path2D;l.arc(o,e,n,0,h),it(t,l,{minX:o-n,minY:e-n,maxX:o+n,maxY:e+n},r)}function it(t,o,e,n){const r=t.p.drawingContext;if(r){if(!t.skeletonMode){const i=function(t){if(!t.atmo||!t.atmo.regionFillModes||!t.region)return null;const o=t.atmo.regionFillModes[t.region];return"truchet"===o?pt:"voronoi"===o?mt:"checker"===o?yt:null}(t);i?(r.save(),r.clip(o),i(t,n,e),r.restore()):(r.fillStyle=n,r.fill(o))}t.contourRgba&&(r.strokeStyle=t.contourRgba,r.lineWidth=t.contourWeight,r.lineJoin="round",r.lineCap="round",r.stroke(o))}}function lt(t,o){const e=t.p.drawingContext;e.fillStyle=o,e.fill(),t.contourRgba&&(e.strokeStyle=t.contourRgba,e.lineWidth=t.contourWeight,e.lineJoin="round",e.lineCap="round",e.stroke())}function at(t){const o=t.partIdx++;if(t.monoColor)return t.monoColor;const e=B(t.colorStream,o^L(31&o)),n=t.subPool;return n[Math.floor(e/256*n.length)]}function st(t,o){t.region="head",rt(t,o.x,o.y,o.r,at(t))}function ct(t,o){const e=t.atmo&&t.atmo.eye;if(!e||!e.on)return;if(t.atmo.rareMode&&"none"!==t.atmo.rareMode)return;const n=o.r*l,r=o.r-n-t.contourWeight;if(r<=0)return;const i=e.angleByte/256*h,a=e.radialByte/256*r,s=o.x+Math.cos(i)*a,c=o.y+Math.sin(i)*a,u=t.p.drawingContext;u&&(u.fillStyle=t.palette.splat,u.beginPath(),u.arc(s,c,n,0,h),u.closePath(),u.fill())}function ut(t,o){t.region=o.kind,nt(t,o.root.x,o.root.y,o.elbow.x,o.elbow.y,o.upperBaseW,o.upperTipW,0,at(t));const n=Math.max(o.upperTipW,o.foreBaseW)*r;rt(t,o.elbow.x,o.elbow.y,n,at(t)),nt(t,o.elbow.x,o.elbow.y,o.tip.x,o.tip.y,o.foreBaseW,o.foreTipW,0,at(t)),"leg"===o.kind?function(t,o){const n=o.foot;if(!n)return;const r=o.tip.x,i=o.tip.y,l=o.tipAngle,a=o.foreTipW*(o.endScale||1),s=l+n.footRot,c=Math.cos(s),u=Math.sin(s),f=a*n.soleLength,h=a*n.soleWidth,g=h*e,d=r+c*f,p=i+u*f;nt(t,r,i,d,p,h,g,0,at(t));const m=h*e/2,y=t.stripeRayLimbs&&t.stripeRayLimbs.has(o);y&&Lt(t,o,r,i,m);const b=t.skeletonMode;if(y&&(t.skeletonMode=!0),rt(t,r,i,m,at(t)),y&&(t.skeletonMode=b),n.toeCount>0&&n.toeLength>.1){const o=a*n.toeLength+g*e/2,r=g*e,i=r*e;for(let e=0;e<n.toeCount;e++){const l=s+(1===n.toeCount?0:e/(n.toeCount-1)-.5)*n.toeSpread;nt(t,d,p,d+Math.cos(l)*o,p+Math.sin(l)*o,r,i,0,at(t))}}}(t,o):function(t,o){const e=o.hand;if(!e)return;const n=o.tip.x,a=o.tip.y,s=o.tipAngle,c=o.foreTipW*(o.endScale||1),u=Math.cos(s),f=Math.sin(s),h=c*e.palmSize,g=n+u*c*e.wristExt,d=a+f*c*e.wristExt,p=t.stripeRayLimbs&&t.stripeRayLimbs.has(o);p&&Lt(t,o,g,d,h);const m=t.skeletonMode;if(p&&(t.skeletonMode=!0),rt(t,g,d,h,at(t)),p&&(t.skeletonMode=m),e.fingerCount>0&&e.fingerLength>.1){const o=Math.max(c*r,c*i+h*l/2),n=c*r/2,a=c*e.fingerLength+h*r;for(let i=0;i<e.fingerCount;i++){const l=s+(1===e.fingerCount?0:i/(e.fingerCount-1)-.5)*e.fingerSpread;nt(t,g,d,g+Math.cos(l)*a,d+Math.sin(l)*a,o,n,a*e.fingerCurl*r,at(t))}}}(t,o)}function ft(t){const{p:n,W:l,H:a,palette:s,atmo:c}=t;if(0===c.bgStyle)return void n.background(s.bg);if(2===c.bgStyle)return void function(t){const{p:o,W:n,H:r,palette:i,atmo:l}=t;o.background(i.bg),o.noStroke(),t.bgBlocks=[];const a=i.pool.filter(t=>t!==i.bg);if(0===a.length)return;const s=!(1&l.bgAccentB),c=!!(2&l.bgAccentB),u=a[(l.bgAccentB>>2)%a.length],f=e;let h,g,d,p;s?(d=n*f,p=r,h=c?n-d:0,g=0):(d=n,p=r*f,h=0,g=c?r-p:0);o.fill(u),o.rect(h,g,d,p),t.bgBlocks.push({x:h,y:g,w:d,h:p,color:u})}(t);if(3===c.bgStyle)return void function(t){const{p:o,W:e,H:n,palette:r,atmo:i}=t;o.background(r.bg),o.noStroke(),t.bgBlocks=[];const l=r.pool.filter(t=>t!==r.bg);if(0===l.length)return;const a=!(1&i.bgAccentB),s=l[(i.bgAccentB>>1)%l.length],c=2*t.U,u=i.bgAccentB/256;let f,h,g,d;a?(g=c,d=n,f=(e-c)*u,h=0):(g=e,d=c,f=0,h=(n-c)*u);o.fill(s),o.rect(f,h,g,d),t.bgBlocks.push({x:f,y:h,w:g,h:d,color:s})}(t);if(4===c.bgStyle)return void function(t){const{p:o,W:n,H:l,palette:a,atmo:s}=t;o.background(a.bg),o.noStroke(),t.bgBlocks=[];const c=a.pool.filter(t=>t!==a.bg);if(0===c.length)return;const f=s.bgAccentB,h=[i,r,e,1-i],g=h,d=[i,r,e,u],p=n*h[3&f],m=l*g[f>>2&3],y=Math.min(n,l)*d[f>>6&3]*.5,b=c[(f>>4&3)%c.length];o.fill(b),o.circle(p,m,2*y),t.bgBlocks.push({shape:"circle",cx:p,cy:m,r:y,color:b})}(t);if(5===c.bgStyle)return void function(t){const{p:o,W:n,H:r,palette:i,atmo:l,subPool:a}=t;if(o.background(i.bg),o.noStroke(),t.bgBlocks=[],0===a.length)return;const s=l.rings.count,c=n/2,u=r/2,f=Math.sqrt(n*n+r*r)/2,h=l.rings.colorOffset,g=[i.bg,...a.filter(t=>t!==i.bg)];if(g.length<2)return o.fill(i.accent),void o.circle(c,u,1.2*f);let d=f;for(let t=0;t<s;t++){const n=g[(h+t)%g.length];o.fill(n),o.circle(c,u,2*d),d*=e}}(t);if(6===c.bgStyle)return void function(t){const{p:n,W:r,H:i,palette:l,atmo:a,subPool:s}=t;n.background(l.bg),n.noStroke(),t.bgBlocks=[];const c=s.filter(t=>t!==l.bg);if(0===c.length)return;const u=a.diagSplit.dirByte;let f=[Math.atan(e),Math.PI/4,Math.atan(o)][u%3];1==(u>>2&1)&&(f=-f);const h=1==(u>>3&1),g=c[((u>>4)%c.length+c.length)%c.length],d=n.drawingContext;d.save(),d.translate(r/2,i/2),d.rotate(f),d.fillStyle=g;const p=4*Math.max(r,i);h?d.fillRect(-p/2,-p/2,p,p/2):d.fillRect(-p/2,0,p,p/2);d.restore()}(t);if(7===c.bgStyle)return void function(t){const{p:o,W:e,H:n,palette:r,atmo:i,subPool:l,skel:a}=t;if(o.background(r.bg),o.noStroke(),t.bgBlocks=[],!a)return;const s=l.filter(t=>t!==r.bg);if(0===s.length)return;const c=[a.armL.tip,a.armR.tip,a.legL.tip,a.legR.tip][i.jointWedges.anchorIdx];if(!c)return;const u=i.jointWedges.count,f=i.jointWedges.spanRadians,h=i.jointWedges.startAngle,g=i.jointWedges.colorOffset,d=2*(e+n),p=f/u;o.fill(r.bg);for(let t=0;t<u;t++){const e=h+t*p,n=h+(t+1)*p,r=s[(g+t)%s.length];o.fill(r),o.beginShape(),o.vertex(c.x,c.y),o.vertex(c.x+Math.cos(e)*d,c.y+Math.sin(e)*d),o.vertex(c.x+Math.cos(n)*d,c.y+Math.sin(n)*d),o.endShape(o.CLOSE)}}(t);n.background(s.bg),n.noStroke(),t.bgBlocks=[];const h=s.pool.filter(t=>t!==s.bg);if(0===h.length)return;const g=t.R,d=2+Math.floor(g.random_dec()*f),p=2+Math.floor(g.random_dec()*f),m=i,y=u,b=[0];for(let t=0;t<d;t++)b.push(g.random_num(m,y));b.push(1),b.sort((t,o)=>t-o);const x=[0];for(let t=0;t<p;t++)x.push(g.random_num(m,y));x.push(1),x.sort((t,o)=>t-o);const M=r;for(let o=0;o<x.length-1;o++)for(let e=0;e<b.length-1;e++){if(!g.random_bool(M))continue;const r=l*b[e],i=a*x[o],s=l*(b[e+1]-b[e]),c=a*(x[o+1]-x[o]),u=g.random_choice(h);n.fill(u),n.rect(r,i,s,c),t.bgBlocks.push({x:r,y:i,w:s,h:c,color:u})}}function ht(t,o,e,n){const r=t.bgBlocks;if(!r||0===r.length)return n;for(let t=0;t<r.length;t++){const n=r[t];if("circle"===n.shape){const t=o-n.cx,r=e-n.cy;if(t*t+r*r<n.r*n.r)return n.color}else if(o>=n.x&&o<=n.x+n.w&&e>=n.y&&e<=n.y+n.h)return n.color}return n}function gt(t){const{p:o,palette:e,atmo:r,U:i}=t;t.p.drawingContext&&(r.glowU<.01?o.drawingContext.shadowBlur=0:(o.drawingContext.shadowBlur=r.glowU*i*n,o.drawingContext.shadowColor=e.splat,o.drawingContext.shadowOffsetX=0,o.drawingContext.shadowOffsetY=0))}function dt(t){t.p.drawingContext&&(t.p.drawingContext.shadowBlur=0)}function pt(t,o,e){const n=t.p.drawingContext,i=Math.max(8,Math.round(t.U*r)),l=.5*i,a=.5*(e.minX+e.maxX),s=.5*(e.minY+e.maxY),c=t.truchetColor||o;n.fillStyle=ht(t,a,s,c);const u=Math.floor(e.minX/i)*i;for(let o=Math.floor(e.minY/i)*i;o<e.maxY+i;o+=i)for(let r=u;r<e.maxX+i;r+=i){const e=17*Math.round(r/i)+31*Math.round(o/i)>>>0;!(1&B(t.colorStream,e^L(31&e)))?(n.beginPath(),n.moveTo(r,o),n.arc(r,o,l,0,Math.PI/2),n.closePath(),n.fill(),n.beginPath(),n.moveTo(r+i,o+i),n.arc(r+i,o+i,l,Math.PI,1.5*Math.PI),n.closePath(),n.fill()):(n.beginPath(),n.moveTo(r+i,o),n.arc(r+i,o,l,Math.PI/2,Math.PI),n.closePath(),n.fill(),n.beginPath(),n.moveTo(r,o+i),n.arc(r,o+i,l,1.5*Math.PI,h),n.closePath(),n.fill())}}function mt(t,o,e){const n=t.p.drawingContext,r=e.maxX-e.minX,i=e.maxY-e.minY,l=2+(3&B(t.colorStream,t.partIdx^L(70))),a=B(t.colorStream,t.partIdx^L(71)),s=t.subPool[a%t.subPool.length],c=[];for(let n=0;n<l;n++){const l=B(t.colorStream,13*t.partIdx+7*n^L(72+n)),a=B(t.colorStream,17*t.partIdx+11*n^L(82+n)),u=e.minX+l/255*r,f=e.minY+a/255*i,h=ht(t,u,f,n%2==0?o:s);c.push({x:u,y:f,col:h})}for(let t=e.minY;t<e.maxY;t+=3)for(let r=e.minX;r<e.maxX;r+=3){let e=1/0,i=o;for(const o of c){const n=r-o.x,l=t-o.y,a=n*n+l*l;a<e&&(e=a,i=o.col)}n.fillStyle=i,n.fillRect(r,t,3,3)}}function yt(t,o,e){const n=t.p.drawingContext,r=Math.max(4,Math.round(t.U*i)),l="#0a0a0a",a="#f0f0f0",s=t.atmo&&t.atmo.checkerSubType||"square",c=e.maxX-e.minX,u=e.maxY-e.minY;if("vertical"===s){const t=Math.floor(e.minX/r)*r;for(let o=t;o<e.maxX+r;o+=r){const i=Math.floor((o-t)/r);n.fillStyle=1&i?a:l,n.fillRect(o,e.minY,r,u)}return}if("horizontal"===s){const t=Math.floor(e.minY/r)*r;for(let o=t;o<e.maxY+r;o+=r){const i=Math.floor((o-t)/r);n.fillStyle=1&i?a:l,n.fillRect(e.minX,o,c,r)}return}const f=Math.floor(e.minX/r)*r,h=Math.floor(e.minY/r)*r;for(let t=h;t<e.maxY+r;t+=r)for(let o=f;o<e.maxX+r;o+=r){const e=Math.floor((o-f)/r),i=Math.floor((t-h)/r);n.fillStyle=e+i&1?a:l,n.fillRect(o,t,r,r)}}function bt(t){if("arm"===t.kind&&t.hand){const o=t.foreTipW*(t.endScale||1)*t.hand.wristExt;return{x:t.tip.x+Math.cos(t.tipAngle)*o,y:t.tip.y+Math.sin(t.tipAngle)*o}}return{x:t.tip.x,y:t.tip.y}}function xt(t){const o=t.foreTipW*(t.endScale||1);if("arm"===t.kind&&t.hand)return 2*o*t.hand.palmSize;if("leg"===t.kind&&t.foot){return o*t.foot.soleWidth*e}return o}function Mt(t){return[bt(t.armL),bt(t.armR),bt(t.legR),bt(t.legL)]}function wt(t,o,e){if(!t.atmo.ribbon||!t.atmo.ribbon.on)return;const n=t.p.drawingContext;if(!n)return;const r=Mt(o);n.save(),n.strokeStyle=t.ribbonRgba,n.lineWidth=Math.max(1.2,t.U*s),n.lineCap="round",n.lineJoin="round",n.shadowBlur=0;for(const t of e){const o=r[t],e=r[(t+1)%4];n.beginPath(),n.moveTo(o.x,o.y),n.lineTo(e.x,e.y),n.stroke()}n.restore()}function kt(t,o,e){const n=e.x-o.x,r=e.y-o.y,i=n*n+r*r;if(i<1e-9){const e=t.x-o.x,n=t.y-o.y;return Math.sqrt(e*e+n*n)}let l=((t.x-o.x)*n+(t.y-o.y)*r)/i;l<0?l=0:l>1&&(l=1);const a=o.x+l*n,s=o.y+l*r,c=t.x-a,u=t.y-s;return Math.sqrt(c*c+u*u)}function Wt(t,o,e,n){return function(t,o,e,n){const r=o.x-t.x,i=o.y-t.y,l=n.x-e.x,a=n.y-e.y,s=r*a-i*l;if(Math.abs(s)<1e-9)return!1;const c=((e.x-t.x)*a-(e.y-t.y)*l)/s,u=((e.x-t.x)*i-(e.y-t.y)*r)/s;return c>=0&&c<=1&&u>=0&&u<=1}(t,o,e,n)?0:Math.min(kt(t,e,n),kt(o,e,n),kt(e,t,o),kt(n,t,o))}function Bt(t,o,e){const n={x:e.torso.x1,y:e.torso.y1},r={x:e.torso.x2,y:e.torso.y2},i=.5*Math.max(e.torso.baseW,e.torso.tipW);return Wt(t,o,n,r)<i||!!function(t,o,e,n,r){const i=o.x-t.x,l=o.y-t.y,a=i*i+l*l;if(a<1e-6)return!1;let s=((e-t.x)*i+(n-t.y)*l)/a;s<0?s=0:s>1&&(s=1);const c=t.x+s*i-e,u=t.y+s*l-n;return c*c+u*u<r*r}(t,o,e.head.x,e.head.y,e.head.r)}function St(t,o){const e=[],n=[];for(let r=0;r<4;r++){Bt(o[r],o[(r+1)%4],t)?e.push(r):n.push(r)}return{back:e,front:n}}function Lt(t,o,e,n,r){const i=t.p.drawingContext;if(!i)return;const l=Math.max(1,2*r/4),a=Math.round(o.tipAngle/(Math.PI/2)),s=Math.round(Math.cos(a*Math.PI/2)),c=Math.round(Math.sin(a*Math.PI/2));i.save(),i.beginPath(),i.arc(e,n,r,0,h),i.clip(),i.translate(e,n),i.rotate(Math.atan2(c,s));for(let t=0;t<4;t++){i.fillStyle=1&t?"#f0f0f0":"#0a0a0a";const o=(t-2)*l;i.fillRect(-r,o,2*r,l)}i.restore()}function Rt(t,o,n,l){const s=n.atmo.bgStyle;if(1!==s&&2!==s&&3!==s)return!1;let c=null;if(1===s){c=new Random(t);for(let t=l.pool.length-1;t>0;t--)c.random_int(0,t)}const h=1e3,g=1e3,d=function(t,o,n,l,s){const c=[],h=l.pool.filter(t=>t!==l.bg);if(0===h.length)return c;if(2===s.bgStyle){const n=!(1&s.bgAccentB),r=!!(2&s.bgAccentB);let i,l,a,u;return n?(a=t*e,u=o,i=r?t-a:0,l=0):(a=t,u=o*e,i=0,l=r?o-u:0),c.push({x:i,y:l,w:a,h:u}),c}if(3===s.bgStyle){const e=t*a,n=!(1&s.bgAccentB),r=2*e,i=s.bgAccentB/256;let l,u,f,h;return n?(f=r,h=o,l=(t-r)*i,u=0):(f=t,h=r,l=0,u=(o-r)*i),c.push({x:l,y:u,w:f,h:h}),c}if(1===s.bgStyle){const e=2+Math.floor(n.random_dec()*f),l=2+Math.floor(n.random_dec()*f),a=i,s=u,g=[0];for(let t=0;t<e;t++)g.push(n.random_num(a,s));g.push(1),g.sort(function(t,o){return t-o});const d=[0];for(let t=0;t<l;t++)d.push(n.random_num(a,s));d.push(1),d.sort(function(t,o){return t-o});const p=r;for(let e=0;e<d.length-1;e++)for(let r=0;r<g.length-1;r++){if(!n.random_bool(p))continue;const i=t*g[r],l=o*d[e],a=t*(g[r+1]-g[r]),s=o*(d[e+1]-d[e]);n.random_choice(h),c.push({x:i,y:l,w:a,h:s})}}return c}(h,g,c,l,n.atmo);if(0===d.length)return!1;const p={W:h,H:g,cx:500,cy:500,U:h*a},m=tt(p,V(o)),y=p.U,b=.5*Math.min(h,g)-y;et(p,m,b,b*r);const x=[m.armL,m.armR,m.legL,m.legR];for(let t=0;t<x.length;t++){const o=x[t],e=[o.root,o.elbow,o.tip];for(let t=0;t<e.length;t++){const o=e[t];for(let t=0;t<d.length;t++){const e=d[t];if(o.x>=e.x&&o.x<=e.x+e.w&&o.y>=e.y&&o.y<=e.y+e.h)return!0}}}return!1}t.Phigures={render:function(t,o,n,s,f,h){let g,d;o&&"object"==typeof o&&o.staticHash&&o.dynamicHash?(g=R(o.staticHash),d=R(o.dynamicHash)):g=d=R(o);const p=g.slice(0,40),m=d.slice(0,40),y=C(p),b=C(m),M=I(y),w=I(b),B={paletteIdx:w.paletteIdx,colorCount:w.colorCount,atmo:{glowU:w.atmo.glowU,figureFillMode:w.atmo.figureFillMode,regionFillModes:w.atmo.regionFillModes,grainAmt:w.atmo.grainAmt,bgStyle:M.atmo.bgStyle,bgAccentB:w.atmo.bgAccentB,contourB:w.atmo.contourB,checkerSubType:w.atmo.checkerSubType,truchetColorByte:w.atmo.truchetColorByte,eye:{on:M.atmo.eye.on,angleByte:w.atmo.eye.angleByte,radialByte:w.atmo.eye.radialByte},ribbon:{on:M.atmo.ribbon.on,phase:w.atmo.ribbon.phase,colorByte:w.atmo.ribbon.colorByte},stripeRayDirByte:w.atmo.stripeRayDirByte,rings:w.atmo.rings,diagSplit:w.atmo.diagSplit,jointWedges:M.atmo.jointWedges,rareMode:M.atmo.rareMode}},S=d,L=m,P=new Random(d),T=b;let U=f||x[B.paletteIdx];const A=h||{};A.noGlow&&(B.atmo.glowU=0),"inverted"===B.atmo.rareMode&&(U={...U,bg:k(U.bg),accent:k(U.accent),splat:k(U.splat),pool:U.pool.map(k)});const v=function(t,o,e){const n=t.slice();for(let t=n.length-1;t>0;t--){const o=e.random_int(0,t),r=n[t];n[t]=n[o],n[o]=r}return n.slice(0,o)}(U.pool,B.colorCount,P),_={p:t,W:n,H:s,hex:L,hex64:S,R:P,genes:T,params:B,palette:U,subPool:v,atmo:B.atmo,cx:n/2,cy:s/2,U:n*a,colorStream:W(T),partIdx:0};_.contour=t.color(U.splat),_.contour.setAlpha(255*u),_.contourWeight=_.U*c;{const t=U.splat.replace("#",""),o=parseInt(t.slice(0,2),16),e=parseInt(t.slice(2,4),16),n=parseInt(t.slice(4,6),16);_.contourRgba="rgba("+o+","+e+","+n+","+u.toFixed(3)+")"}{const t=_.subPool.filter(t=>t!==U.bg),o=t.length>0?t:U.pool.filter(t=>t!==U.bg);_.truchetColor=o.length>0?o[B.atmo.truchetColorByte%o.length]:U.accent}if(B.atmo.ribbon&&B.atmo.ribbon.on){const t=function(t,o){const e=function(t){const o=[t.splat,t.accent];for(const e of t.pool)if(e!==t.bg&&e!==t.splat&&e!==t.accent&&(o.push(e),o.length>=4))break;for(;o.length<4;)o.push(t.splat);return o}(t);let n=o/256*D;for(let t=0;t<E.length;t++)if(n-=E[t],n<0)return e[t];return e[0]}(U,B.atmo.ribbon.colorByte),o=t.replace("#",""),e=parseInt(o.slice(0,2),16),n=parseInt(o.slice(2,4),16),r=parseInt(o.slice(4,6),16);_.ribbonRgba="rgba("+e+","+n+","+r+",1)"}const F=V(y),Y=tt(_,F);_.skel=Y;const H=_.U,K=.5*Math.min(n,s)-H;et(_,Y,K,K*r),A.noBackground||ft(_);const O=B.atmo.rareMode;if(_.skeletonMode="skeleton"===O,_.monoColor="mono"===O?U.accent:null,"mono"===O&&(_.atmo.figureFillMode="solid",_.atmo.regionFillModes={head:"solid",torso:"solid",arm:"solid",leg:"solid"}),"scatter"===O){t.background(U.bg),_.bgBlocks=[],_.atmo.figureFillMode="solid",_.atmo.regionFillModes={head:"solid",torso:"solid",arm:"solid",leg:"solid"},gt(_);const o=t.drawingContext,a=Math.min(n,s)*l,u={},f=[],h=function(t,o,e,n,r,i){const l=Math.max(r,i),a=Math.min(t,e)-.5*l,s=Math.max(t,e)+.5*l,c=Math.min(o,n)-.5*l;return{x:a,y:c,w:s-a,h:Math.max(o,n)+.5*l-c}},g=function(t,o,e){return{x:t-e,y:o-e,w:2*e,h:2*e}},d=function(t,o,e){const n=2*(_.R.random_dec()-.5)*a,r=2*(_.R.random_dec()-.5)*a;return f.push({tx:n,ty:r,bbox:{x:o.x+n,y:o.y+r,w:o.w,h:o.h},drawFn:t,anchorKeys:e||null}),[n,r]};{const[t,o]=d(function(){st(_,Y.head)},g(Y.head.x,Y.head.y,Y.head.r),["head"]);u.head={x:Y.head.x+t,y:Y.head.y+o}}B.atmo.eye&&B.atmo.eye.on&&d(function(){ct(_,Y.head)},g(Y.head.x,Y.head.y,Y.head.r*r),null);{const[t,o]=d(function(){_.region="torso",nt(_,Y.torso.x1,Y.torso.y1,Y.torso.x2,Y.torso.y2,Y.torso.baseW,Y.torso.tipW,Y.torso.curve||0,at(_))},h(Y.torso.x1,Y.torso.y1,Y.torso.x2,Y.torso.y2,Y.torso.baseW,Y.torso.tipW),["torsoTop","torsoBottom"]);u.torsoTop={x:Y.torso.x1+t,y:Y.torso.y1+o},u.torsoBottom={x:Y.torso.x2+t,y:Y.torso.y2+o}}const p=[{limb:Y.legL,jointKey:"kneeL",endKey:"ankleL"},{limb:Y.legR,jointKey:"kneeR",endKey:"ankleR"},{limb:Y.armL,jointKey:"elbowL",endKey:"palmL"},{limb:Y.armR,jointKey:"elbowR",endKey:"palmR"}];for(let t=0;t<p.length;t++){const o=p[t],n=o.limb,a=n.kind;d(function(){_.region=a,nt(_,n.root.x,n.root.y,n.elbow.x,n.elbow.y,n.upperBaseW,n.upperTipW,0,at(_))},h(n.root.x,n.root.y,n.elbow.x,n.elbow.y,n.upperBaseW,n.upperTipW),null);const s=Math.max(n.upperTipW,n.foreBaseW)*r;{const[t,e]=d(function(){_.region=a,rt(_,n.elbow.x,n.elbow.y,s,at(_))},g(n.elbow.x,n.elbow.y,s),[o.jointKey]);u[o.jointKey]={x:n.elbow.x+t,y:n.elbow.y+e}}if(d(function(){_.region=a,nt(_,n.elbow.x,n.elbow.y,n.tip.x,n.tip.y,n.foreBaseW,n.foreTipW,0,at(_))},h(n.elbow.x,n.elbow.y,n.tip.x,n.tip.y,n.foreBaseW,n.foreTipW),null),"arm"===n.kind&&n.hand){const t=n.hand,e=n.foreTipW*(n.endScale||1),s=n.tipAngle,c=Math.cos(s),f=Math.sin(s),p=e*t.palmSize,m=n.tip.x+c*e*t.wristExt,y=n.tip.y+f*e*t.wristExt;{const[t,e]=d(function(){_.region=a,rt(_,m,y,p,at(_))},g(m,y,p),[o.endKey]);u[o.endKey]={x:m+t,y:y+e}}if(t.fingerCount>0&&t.fingerLength>.1){const o=Math.max(e*r,e*i+p*l/2),n=e*r/2,c=e*t.fingerLength+p*r;for(let e=0;e<t.fingerCount;e++){const i=s+(1===t.fingerCount?0:e/(t.fingerCount-1)-.5)*t.fingerSpread,l=m+Math.cos(i)*c,u=y+Math.sin(i)*c,f=c*t.fingerCurl*r;d(function(){_.region=a,nt(_,m,y,l,u,o,n,f,at(_))},h(m,y,l,u,o,n),null)}}}if("leg"===n.kind&&n.foot){const t=n.foot,r=n.foreTipW*(n.endScale||1),i=n.tipAngle+t.footRot,l=Math.cos(i),s=Math.sin(i),c=r*t.soleLength,f=r*t.soleWidth,p=f*e,m=n.tip.x+l*c,y=n.tip.y+s*c;d(function(){_.region=a,nt(_,n.tip.x,n.tip.y,m,y,f,p,0,at(_))},h(n.tip.x,n.tip.y,m,y,f,p),null);const b=f*e/2;{const[t,e]=d(function(){_.region=a,rt(_,n.tip.x,n.tip.y,b,at(_))},g(n.tip.x,n.tip.y,b),[o.endKey]);u[o.endKey]={x:n.tip.x+t,y:n.tip.y+e}}if(t.toeCount>0&&t.toeLength>.1){const o=r*t.toeLength+p*e/2,n=p*e,l=n*e;for(let e=0;e<t.toeCount;e++){const r=i+(1===t.toeCount?0:e/(t.toeCount-1)-.5)*t.toeSpread,s=m+Math.cos(r)*o,c=y+Math.sin(r)*o;d(function(){_.region=a,nt(_,m,y,s,c,n,l,0,at(_))},h(m,y,s,c,n,l),null)}}}}const m=[["head","torsoTop"],["torsoTop","elbowL"],["torsoTop","elbowR"],["elbowL","palmL"],["elbowR","palmR"],["torsoBottom","kneeL"],["torsoBottom","kneeR"],["kneeL","ankleL"],["kneeR","ankleR"]],y=function(t){const o=u[t];if(!o)return!1;for(let e=0;e<f.length;e++){const n=f[e];if(!(n.anchorKeys&&n.anchorKeys.indexOf(t)>=0)&&(o.x>=n.bbox.x&&o.x<=n.bbox.x+n.bbox.w&&o.y>=n.bbox.y&&o.y<=n.bbox.y+n.bbox.h))return!0}return!1},b=[],x=[];for(let t=0;t<m.length;t++){const o=m[t][0],e=m[t][1];if(!u[o]||!u[e])continue;(y(o)||y(e)?b:x).push([o,e])}const M=function(t){if(0!==t.length){o.save(),o.strokeStyle=U.splat,o.lineWidth=_.U*c,o.lineCap="round",o.lineJoin="round",o.shadowBlur=0;for(let e=0;e<t.length;e++){const n=t[e];o.beginPath(),o.moveTo(u[n[0]].x,u[n[0]].y),o.lineTo(u[n[1]].x,u[n[1]].y),o.stroke()}o.restore()}};M(b);for(let t=0;t<f.length;t++){const e=f[t];o.save(),o.translate(e.tx,e.ty),e.drawFn(),o.restore()}return M(x),void dt(_)}!function(t,o){if(!t.atmo.ribbon||!t.atmo.ribbon.on)return;const e=Mt(o),{back:n}=St(o,e);wt(t,o,n)}(_,Y),function(t,o){if(!t.bgBlocks||0===t.bgBlocks.length)return;const e=t.p.drawingContext;if(!e)return;const n=[o.armL,o.armR,o.legL,o.legR];t.stripeRayLimbs||(t.stripeRayLimbs=new Set);for(const o of n){let n=!1;for(const e of[o.root,o.elbow,o.tip]){for(const o of t.bgBlocks)if(e.x>=o.x&&e.x<=o.x+o.w&&e.y>=o.y&&e.y<=o.y+o.h){n=!0;break}if(n)break}if(!n)continue;t.stripeRayLimbs.add(o);const r=bt(o),i=xt(o),l=Math.max(1,i/4),a=Math.round(o.tipAngle/(Math.PI/2)),s=Math.round(Math.cos(a*Math.PI/2)),c=Math.round(Math.sin(a*Math.PI/2));let u;if(u=s>0?t.W-r.x:s<0?r.x:c>0?t.H-r.y:r.y,u<=0)continue;const f=i/2;e.save(),e.translate(r.x,r.y),e.rotate(Math.atan2(c,s)),e.beginPath(),e.moveTo(u,-f),e.lineTo(u,f),e.lineTo(0,f),e.arc(0,0,f,Math.PI/2,1.5*Math.PI),e.lineTo(u,-f),e.closePath(),e.clip();for(let t=0;t<4;t++){e.fillStyle=1&t?"#f0f0f0":"#0a0a0a";const o=(t-2)*l;e.fillRect(-f,o,u+f,l)}e.restore()}}(_,Y),function(t,o){if(!t.atmo.ribbon||!t.atmo.ribbon.on)return;const e=t.p.drawingContext;if(!e)return;const n=Mt(o),r=.25*(n[0].x+n[1].x+n[2].x+n[3].x),i=.25*(n[0].y+n[1].y+n[2].y+n[3].y),l=t.subPool;for(let t=0;t<4;t++){const o=n[t],a=n[(t+1)%4],s=l[t%l.length].replace("#",""),c=parseInt(s.slice(0,2),16),u=parseInt(s.slice(2,4),16),f=parseInt(s.slice(4,6),16);e.fillStyle="rgba("+c+","+u+","+f+",0.5)",e.beginPath(),e.moveTo(r,i),e.lineTo(o.x,o.y),e.lineTo(a.x,a.y),e.closePath(),e.fill()}}(_,Y),gt(_),ut(_,Y.legL),ut(_,Y.legR),_.region="torso",nt(_,Y.torso.x1,Y.torso.y1,Y.torso.x2,Y.torso.y2,Y.torso.baseW,Y.torso.tipW,Y.torso.curve||0,at(_)),ut(_,Y.armL),ut(_,Y.armR),function(t,o){if(!t.atmo.ribbon||!t.atmo.ribbon.on)return;const e=Mt(o),{front:n}=St(o,e);wt(t,o,n)}(_,Y),st(_,Y.head),ct(_,Y.head),dt(_)},inspect:function(t){const o=R(t),e=o.slice(0,40),n=C(e),r=I(n),i=x[r.paletteIdx];let l=i;return"inverted"===r.atmo.rareMode&&(l={bg:k(i.bg),accent:k(i.accent),splat:k(i.splat),light:i.light,pool:i.pool.map(k)}),{hex:e,paletteIdx:r.paletteIdx,paletteId:x[r.paletteIdx].id,colorCount:r.colorCount,figureFillMode:r.atmo.figureFillMode,bgStyle:["solid","blocks","split","banner","orb","rings","diagSplit","jointWedges"][r.atmo.bgStyle]||"solid",rareMode:r.atmo.rareMode,ribbonOn:r.atmo.ribbon.on,eyeOn:r.atmo.eye.on,stripeRayOn:Rt(o,n,r,l),glowU:r.atmo.glowU}},PALETTE_MODES:x}}("undefined"!=typeof window?window:globalThis),function(){if("undefined"==typeof tokenData||!tokenData||!tokenData.hash)return;if("undefined"==typeof p5)return;if("undefined"==typeof window)return;!function(){const t=window.Phigures.inspect(tokenData.hash);window.$features={Palette:{RED_FIELD:"Red Field",BLUE_FIELD:"Blue Field",YELLOW_FIELD:"Yellow Field",CREAM_FIELD:"Cream Field",BLACK_RED:"Black & Red",BLACK_YELLOW:"Black & Yellow",CREAM_RED:"Cream & Red",CREAM_BLUE:"Cream & Blue"}[t.paletteId]||t.paletteId,"Color Count":t.colorCount,"Fill Mode":{solid:"Solid",truchet:"Truchet",voronoi:"Voronoi",checker:"Checker"}[t.figureFillMode]||t.figureFillMode,Background:{solid:"Solid",blocks:"Block Grid",split:"Split",banner:"Banner",orb:"Orb",rings:"Rings",diagSplit:"Diagonal",jointWedges:"Wedges"}[t.bgStyle]||t.bgStyle,"Render Mode":{none:"Default",scatter:"Scatter",skeleton:"Skeleton",inverted:"Inverted",mono:"Mono"}[t.rareMode]||t.rareMode,Ribbon:t.ribbonOn,Eye:t.eyeOn}}();const t=tokenData.staticHash&&tokenData.dynamicHash?{staticHash:tokenData.staticHash,dynamicHash:tokenData.dynamicHash}:tokenData.hash;new p5(function(o){const e=function(){return Math.min(o.windowWidth,o.windowHeight)};o.setup=function(){const n=e();o.createCanvas(n,n),o.pixelDensity(2),o.noLoop(),window.Phigures.render(o,t,o.width,o.height)},o.windowResized=function(){const n=e();o.resizeCanvas(n,n),window.Phigures.render(o,t,o.width,o.height)}})}();</script></body></html>
