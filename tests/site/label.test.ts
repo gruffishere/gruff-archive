@@ -103,6 +103,22 @@ describe('edition and keeper lines', () => {
   });
 });
 
+describe('numbered edition', () => {
+  it('reads 1/1/<works> for an erc721 collection of several works', () => {
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 673 })).toBe('1/1/673 · erc-721');
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 2 })).toBe('1/1/2 · erc-721');
+  });
+  it('keeps 1/1 for a single-work collection and leaves the other rows alone', () => {
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 1 })).toBe('1/1 · erc-721');
+    expect(editionText({ supply: 25 }, { standard: 'erc1155', works: 40 })).toBe('edition of 25 · erc-1155');
+    expect(editionText({ supply: 0 }, { standard: 'erc721', works: 673 })).toBe('none in circulation · erc-721');
+  });
+  it('appears on the print label', () => {
+    const lines = labelLines(t, { ...c, works: 673 } as CollectionOut).map((l) => l.text);
+    expect(lines).toContain('1/1/673 · erc-721');
+  });
+});
+
 describe('safeJson', () => {
   it('cannot close an inline script tag', () => {
     const out = safeJson({ name: 'x</script><script>alert(1)</script>', ens: '<!--' });
