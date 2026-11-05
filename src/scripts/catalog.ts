@@ -147,7 +147,7 @@ if (wall) {
   };
   const deal = async () => {
     const ctl = new AbortController();
-    const timer = window.setTimeout(() => ctl.abort(), 6000);
+    const timer = window.setTimeout(() => ctl.abort(), 3000);
     try {
       const res = await fetch('/catalog/pool.json', { signal: ctl.signal });
       if (!res.ok) return;

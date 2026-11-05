@@ -366,15 +366,19 @@ test('a work page links to the original on arweave', async ({ page }) => {
 
 test('hovering or focusing an animated catalog piece plays its gif, leaving restores the still', async ({ page }) => {
   const cols = collections();
-  const gif = catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]))).find((p) => p.hover?.type === 'gif' && p.hover.src.endsWith('.gif'));
   const anyAnimated = cols.some((c) => tokensOf(c.slug).some((t) => t.image?.animated));
   test.skip(!anyAnimated, 'the catalog has no animated piece');
-  expect(gif, 'an animated piece in the catalog must hang on the wall').toBeTruthy();
   const gifRequests: string[] = [];
   page.on('request', (r) => /\.gif(\?|$)/i.test(r.url()) && gifRequests.push(r.url()));
-  await checkPage(page, '/catalog/');
-  await expect(page.locator('#salon.on')).toBeVisible();
-  const tile = page.locator(`#salon a.tile[href="${workPath(gif!.slug, gif!.id)}"]`);
+  // the wall is a random draw: pin seeds until one hangs an animated piece
+  const tile = page.locator('#salon a.tile:has(img[data-gif$=".gif"])').first();
+  for (let seed = 1; seed <= 20; seed++) {
+    await checkPage(page, `/catalog/?seed=${seed}`);
+    await expect(page.locator('#salon.on')).toBeVisible();
+    await expect(page.locator('#salon.pending')).toHaveCount(0);
+    if (await tile.count()) break;
+  }
+  expect(await tile.count(), 'some draw hangs an animated piece').toBeGreaterThan(0);
   const img = tile.locator('img');
   await tile.scrollIntoViewIfNeeded();
   const still = await img.getAttribute('src');

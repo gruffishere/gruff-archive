@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { checkPage } from './helpers';
 
+// a first-time visitor: the config's default state has the card already closed
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const card = '#note';
 
 test('the note card appears after the delay, and x hides it for good', async ({ page }) => {
