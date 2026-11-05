@@ -23,6 +23,10 @@ export interface CollectionConfig {
   accessionWidth?: number;
   /** Per-token collaborator names that replace what is parsed from the description. */
   collaborators?: Record<string, string[]>;
+  /** Planned total of a collection that is still being minted (e.g. 69); editions read 1/1/<supplyCap>. */
+  supplyCap?: number;
+  /** Set when a capped collection's mint closed before it sold out. */
+  mintClosed?: boolean;
   /** Quiet links shown under the collection meta line and on each work label. */
   links?: { label: string; url: string }[];
 }

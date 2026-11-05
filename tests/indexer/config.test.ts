@@ -44,9 +44,9 @@ describe('parseConfig', () => {
 });
 
 describe('loadConfig (real file)', () => {
-  it('has 15 index collections, with FACETS and OVVN in experiments', () => {
+  it('has 19 index collections, with FACETS and OVVN in experiments', () => {
     const c = loadConfig();
-    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(15);
+    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(19);
     expect(c.collections.filter((x) => x.section === 'experiments').map((x) => x.code).sort()).toEqual(['FCT', 'OVN']);
     expect(c.collections.find((x) => x.code === '366')?.tokenIds).toEqual(['366']);
   });

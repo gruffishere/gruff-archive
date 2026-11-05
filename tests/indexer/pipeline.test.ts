@@ -156,7 +156,7 @@ describe('processCollection Blockscout failures (M1)', () => {
 
 describe('loadMedia OpenSea fallback at full size', () => {
   const small = 'https://i2c.seadn.io/ethereum/0xabc/p.png';
-  const full = `${small}?w=4000`;
+  const full = `${small}?w=2000`;
 
   it('downloads the 4000 px source and remembers the original png link', async () => {
     const os = fakeOs(async () => small);

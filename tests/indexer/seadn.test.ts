@@ -9,15 +9,15 @@ import { seadnFull, seadnOriginal } from '../../indexer/seadn';
 const U = 'https://i2c.seadn.io/ethereum/0x72b1/c92a1c5e.png';
 
 describe('seadnFull', () => {
-  it('sets w=4000 on a seadn.io url without a query', () => {
-    expect(seadnFull(U)).toBe(`${U}?w=4000`);
+  it('sets w=2000 on a seadn.io url without a query', () => {
+    expect(seadnFull(U)).toBe(`${U}?w=2000`);
   });
   it('replaces any existing query', () => {
-    expect(seadnFull(`${U}?w=500&auto=format`)).toBe(`${U}?w=4000`);
-    expect(seadnFull(`${U}?format=png&w=2048`)).toBe(`${U}?w=4000`);
+    expect(seadnFull(`${U}?w=500&auto=format`)).toBe(`${U}?w=2000`);
+    expect(seadnFull(`${U}?format=png&w=2048`)).toBe(`${U}?w=2000`);
   });
   it('handles seadn.io itself and its subdomains only', () => {
-    expect(seadnFull('https://seadn.io/a.png')).toBe('https://seadn.io/a.png?w=4000');
+    expect(seadnFull('https://seadn.io/a.png')).toBe('https://seadn.io/a.png?w=2000');
     expect(seadnFull('https://evilseadn.io/a.png')).toBe('https://evilseadn.io/a.png');
     expect(seadnFull('https://seadn.io.evil.com/a.png')).toBe('https://seadn.io.evil.com/a.png');
   });

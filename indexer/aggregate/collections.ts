@@ -20,6 +20,10 @@ export interface CollectionOut {
   firstMint: string | null;
   lastMint: string | null;
   works: number;
+  /** Planned total for a collection still minting, else null. */
+  supplyCap: number | null;
+  /** True while a capped collection has minted fewer works than its cap and its mint is not closed. */
+  minting: boolean;
   pieces: number;
   holders: number;
   floorWei: string | null;
@@ -63,6 +67,8 @@ export function buildCollection(i: {
     firstMint: mintDates[0] ?? null,
     lastMint: mintDates.at(-1) ?? null,
     works: i.tokens.filter((t) => t.supply > 0).length,
+    supplyCap: i.cfg.supplyCap ?? null,
+    minting: !!i.cfg.supplyCap && !i.cfg.mintClosed && i.tokens.filter((t) => t.supply > 0).length < i.cfg.supplyCap,
     pieces: i.tokens.reduce((sum, t) => sum + t.supply, 0),
     holders: holders.size,
     floorWei: i.floorWei,
