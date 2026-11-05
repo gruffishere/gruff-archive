@@ -39,6 +39,20 @@ describe('print label', () => {
   });
 });
 
+describe('collaborators', () => {
+  const co = { ...t, collaborators: ['SuperVillian', 'DeltaSauce'] } as unknown as TokenOut;
+  it('puts the names on the meta line, joined with a middle dot', () => {
+    expect(labelLines(co, c)[2].text).toBe('gruff × SuperVillian · DeltaSauce, 2023 · SILVER SURFER');
+    expect(labelLines({ ...t, collaborators: ['SuperVillian'] } as unknown as TokenOut, c)[2].text).toBe('gruff × SuperVillian, 2023 · SILVER SURFER');
+  });
+  it('is unchanged without collaborators', () => {
+    expect(labelLines({ ...t, collaborators: [] } as unknown as TokenOut, c)[2].text).toBe('gruff, 2023 · SILVER SURFER');
+  });
+  it('keeps gruff lowercase and names as written when splitting', () => {
+    expect(splitLine(labelLines(co, c)[2])).toEqual({ head: 'gruff × SuperVillian · DeltaSauce', value: ', 2023 · SILVER SURFER', keep: 'head' });
+  });
+});
+
 describe('fitText', () => {
   const measure = (s: string) => s.length * 10;
   it('keeps text that fits and truncates with an ellipsis otherwise', () => {

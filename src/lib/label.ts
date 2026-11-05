@@ -11,14 +11,20 @@ export function editionText(t: Pick<TokenOut, 'supply'>, c: Pick<CollectionOut, 
   return c.standard === 'erc1155' ? `edition of ${t.supply} · ${std}` : `1/1 · ${std}`;
 }
 
-export interface LabelLine { text: string; style: 'accession' | 'title' | 'meta' | 'price' | 'row' }
+export interface LabelLine { text: string; style: 'accession' | 'title' | 'meta' | 'price' | 'row'; /** collaborator names on the meta line, drawn as written */ names?: string }
+
+/** `gruff × A · B, 2023 · TITLE`: the artist, any collaborators, the year and the collection. */
+function metaLine(t: TokenOut, year: string, title: string): LabelLine {
+  const names = (t.collaborators ?? []).join(' · ');
+  return names ? { text: `gruff × ${names}, ${year} · ${title}`, style: 'meta', names } : { text: `gruff, ${year} · ${title}`, style: 'meta' };
+}
 
 export function labelLines(t: TokenOut, c: CollectionOut): LabelLine[] {
   const year = (t.mint?.at ?? c.firstMint ?? '').slice(0, 4);
   const lines: LabelLine[] = [
     { text: t.accession, style: 'accession' },
     { text: t.name, style: 'title' },
-    { text: `gruff, ${year} · ${c.title}`, style: 'meta' },
+    metaLine(t, year, c.title),
     { text: editionText(t, c), style: 'meta' },
   ];
   const owner = t.owners[0];
@@ -63,6 +69,10 @@ export function splitLine(line: LabelLine): LineParts {
   if (line.style === 'row') {
     const i = line.text.indexOf('  ');
     if (i >= 0) return { head: line.text.slice(0, i + 2).toUpperCase(), value: line.text.slice(i + 2), keep: 'value' };
+  }
+  if (line.style === 'meta' && line.names && line.text.startsWith('gruff × ')) {
+    const head = `gruff × ${line.names}`;
+    return { head, value: line.text.slice(head.length).toUpperCase(), keep: 'head' };
   }
   if (line.style === 'meta' && line.text.startsWith('gruff')) {
     return { head: 'gruff', value: line.text.slice(5).toUpperCase(), keep: 'head' };

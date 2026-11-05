@@ -35,6 +35,7 @@ const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYea
             <div class="cap">
               <span class="k">{t.accession}</span>
               <span class="lower">{t.name}</span>
+              {t.collaborators?.length > 0 && <span class="collab">w/ {t.collaborators.join(' · ')}</span>}
               <span class="k lower">{t.listing ? `listed ${formatEth(t.listing.priceWei)}` : 'not listed'}{t.owners[0] ? ` · ${displayName(t.owners[0].address, t.owners[0].ens)}` : ''}</span>
             </div>
           ) : chooseMedia(t, 'thumb').kind !== 'none' && (
@@ -53,6 +54,7 @@ const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYea
   .stats { max-width: 420px; margin: 18px 0 34px; }
   .works.column { display: grid; gap: 64px; max-width: 900px; }
   .works.column .cap { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+  .collab { color: #fff; }
   .works.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
   .works.grid .cap-s { display: block; font-size: 9px; margin-top: 4px; }
   .works :global(iframe) { pointer-events: none; }

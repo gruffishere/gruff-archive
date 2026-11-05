@@ -1,4 +1,5 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
+import type { TokenOut } from '../../indexer/aggregate/tokens';
 
 export const workPath = (slug: string, id: string) => `/w/${slug}/${id}/`;
 export const collectionPath = (slug: string) => `/c/${slug}/`;
@@ -22,7 +23,23 @@ export function platformLink(c: Pick<CollectionOut, 'platform' | 'platformUrl' |
       return { label: 'transient', url: `https://www.transient.xyz/nfts/ethereum/${c.contract}/${id}` };
     case '6529':
       return { label: '6529', url: `https://6529.io/the-memes/${id}` };
+    case 'opensea':
+      return null; // the work page already links its own OpenSea item
     default:
       return c.platformUrl ? { label: hostLabel(c.platformUrl) ?? c.platform, url: c.platformUrl } : null;
   }
+}
+
+/** Where to open the artwork as minted: the public source when there is one, else the file the site stores (on-chain works). */
+export function originalLink(t: TokenOut): { url: string; where: string } | null {
+  const kinds = [t.animation?.kind, t.image?.kind];
+  const anim = kinds.includes('html') || kinds.includes('video');
+  const remote = anim ? t.originals?.animation : t.originals?.image;
+  if (remote) {
+    const host = hostLabel(remote);
+    const where = host === 'arweave.net' ? 'arweave' : host && (/(^|.)(pinata.cloud|ipfs.io|filebase.io|dweb.link)$/.test(host) || new URL(remote).pathname.startsWith('/ipfs/')) ? 'ipfs' : (host ?? 'original');
+    return { url: remote, where };
+  }
+  const local = anim ? (t.animation?.file ?? t.animation?.large ?? t.image?.file) : (t.image?.file ?? t.image?.large);
+  return local ? { url: local, where: 'on-chain' } : null;
 }

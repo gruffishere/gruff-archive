@@ -8,13 +8,14 @@ const { c, t, ethUsd, asOf } = Astro.props;
 const year = (t.mint?.at ?? c.firstMint ?? '').slice(0, 4);
 const platform = platformLink(c, t.id);
 const edition = editionText(t, c);
+const collabs = t.collaborators ?? [];
 const mintText = t.mint ? mintValue(t.mint) : '—';
 const snapshot = t.listing?.priceWei ?? '';
 ---
 <div class="label">
   <div class="f">{t.accession}</div>
   <h1 class="title lower">{t.name}</h1>
-  <div class="k"><span class="lower">gruff</span>, {year}</div>
+  <div class="k"><span class="lower">gruff</span>{collabs.length > 0 && <> × <span class="collab">{collabs.join(' · ')}</span></>}, {year}</div>
   <hr />
   {t.supply > 0 && (<>
   <div class="k" id="price-label">{t.listing ? 'listed' : ''}</div>
@@ -46,6 +47,7 @@ const snapshot = t.listing?.priceWei ?? '';
 </div>
 <style>
   .title { font: 400 15px/1.3 var(--mono); margin: 6px 0 4px; overflow-wrap: anywhere; }
+  .collab { color: var(--fg, #fff); text-transform: none; }
   .desc { color: #aaa; line-height: 1.7; white-space: pre-line; overflow-wrap: anywhere; }
   .links { display: flex; gap: 14px; flex-wrap: wrap; margin: 14px 0; }
   .links a { text-decoration: underline; text-decoration-color: #444; text-underline-offset: 6px; }

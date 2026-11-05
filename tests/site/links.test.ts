@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { collectionPath, etherscanAddress, etherscanToken, openseaItem, platformLink, workPath } from '../../src/lib/links';
+import type { TokenOut } from '../../src/lib/data';
+import { collectionPath, etherscanAddress, etherscanToken, openseaItem, originalLink, platformLink, workPath } from '../../src/lib/links';
 
 const C = '0x3be88adf4d68c32bad5707588c7d25e1af8644e0';
 
@@ -20,5 +21,38 @@ describe('links', () => {
     expect(platformLink({ platform: 'manifold', platformUrl: null, contract: C }, '1')).toBeNull();
     expect(platformLink({ platform: 'manifold', platformUrl: 'https://example.com/x', contract: C }, '1')).toEqual({ label: 'example.com', url: 'https://example.com/x' });
     expect(platformLink({ platform: 'onchain', platformUrl: 'https://www.thefacets.art', contract: C }, '1')?.label).toBe('thefacets.art');
+  });
+  it('has no platform link for opensea (the work page has its own)', () => {
+    expect(platformLink({ platform: 'opensea', platformUrl: null, contract: C }, '1')).toBeNull();
+    expect(platformLink({ platform: 'opensea', platformUrl: 'https://opensea.io/collection/x', contract: C }, '1')).toBeNull();
+  });
+});
+
+const tok = (o: Partial<TokenOut>) => ({ image: null, animation: null, originals: { image: null, animation: null }, ...o }) as unknown as TokenOut;
+const img = { kind: 'image', thumb: '/media/a-t.webp', large: '/media/a-l.webp', file: null };
+
+describe('originalLink', () => {
+  it('links an arweave original', () => {
+    expect(originalLink(tok({ image: img as never, originals: { image: 'https://arweave.net/abc', animation: null } }))).toEqual({ url: 'https://arweave.net/abc', where: 'arweave' });
+  });
+  it('links an ipfs gateway original', () => {
+    expect(originalLink(tok({ image: img as never, originals: { image: 'https://gateway.pinata.cloud/ipfs/bafy/1.png', animation: null } }))?.where).toBe('ipfs');
+  });
+  it('labels any other https original by hostname', () => {
+    expect(originalLink(tok({ image: img as never, originals: { image: 'https://www.example.com/a.png', animation: null } }))).toEqual({ url: 'https://www.example.com/a.png', where: 'example.com' });
+  });
+  it('uses the animation original for html and video works', () => {
+    const t = tok({ image: img as never, animation: { kind: 'html', thumb: null, large: null, file: '/media/x.html' } as never, originals: { image: 'https://arweave.net/i', animation: 'https://arweave.net/a' } });
+    expect(originalLink(t)?.url).toBe('https://arweave.net/a');
+  });
+  it('falls back to the stored file, on-chain, when the source was a data: uri', () => {
+    expect(originalLink(tok({ image: { ...img, file: '/media/a.png' } as never }))).toEqual({ url: '/media/a.png', where: 'on-chain' });
+    expect(originalLink(tok({ image: img as never }))).toEqual({ url: '/media/a-l.webp', where: 'on-chain' });
+    expect(originalLink(tok({ image: { kind: 'svg', thumb: null, large: null, file: '/media/s.svg' } as never }))?.url).toBe('/media/s.svg');
+    const html = tok({ image: img as never, animation: { kind: 'html', thumb: null, large: null, file: '/media/x.html' } as never });
+    expect(originalLink(html)).toEqual({ url: '/media/x.html', where: 'on-chain' });
+  });
+  it('is null without any media', () => {
+    expect(originalLink(tok({}))).toBeNull();
   });
 });

@@ -283,3 +283,16 @@ test('index pulse line keeps its spaces', async ({ page }) => {
   expect(text.toLowerCase()).toContain('latest: ');
   expect(text).toMatch(/ → ?$/);
 });
+
+test('a collab work names its collaborator on the label', async ({ page }) => {
+  await checkPage(page, '/w/collabs/1/');
+  const label = page.locator('.label');
+  await expect(label).toContainText('×');
+  await expect(label).toContainText('SuperVillian');
+});
+
+test('a work page links to the original on arweave', async ({ page }) => {
+  await checkPage(page, '/w/antique/2/');
+  const link = page.getByRole('link', { name: 'original ↗' });
+  await expect(link).toHaveAttribute('href', /^https:\/\/arweave\.net\//);
+});

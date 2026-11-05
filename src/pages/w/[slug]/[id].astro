@@ -5,8 +5,9 @@ import WallLabel from '../../../components/WallLabel.astro';
 import ActivityTable from '../../../components/ActivityTable.astro';
 import { collections, meta, tokensOf, type CollectionOut, type TokenOut } from '../../../lib/data';
 import { toDisplayRows } from '../../../lib/activity';
-import { collectionPath, etherscanToken, openseaItem, workPath } from '../../../lib/links';
+import { collectionPath, etherscanToken, openseaItem, originalLink, workPath } from '../../../lib/links';
 import { labelFilename, labelImage, labelLines, safeJson } from '../../../lib/label';
+import { chooseMedia } from '../../../lib/media';
 import { workNav } from '../../../lib/collections';
 
 export function getStaticPaths() {
@@ -18,6 +19,8 @@ export function getStaticPaths() {
 }
 const { c, t, prev, next, n, total } = Astro.props as { c: CollectionOut; t: TokenOut; prev: string | null; next: string | null; n: number | null; total: number };
 const m = meta();
+const original = originalLink(t);
+const wrap = original && ['img', 'video'].includes(chooseMedia(t, 'large').kind);
 const labelData = safeJson({ lines: labelLines(t, c), image: labelImage(t), filename: labelFilename(t) });
 const recent = toDisplayRows(t.recent.map((e) => ({ ...e, slug: c.slug, code: c.code, tokenName: t.name, accession: t.accession, thumb: t.image?.thumb ?? null, fromEns: null, toEns: null })));
 const ens = new Map(t.owners.filter((o) => o.ens).map((o) => [o.address, o.ens as string]));
@@ -30,7 +33,10 @@ for (const r of recent) {
   <section class="page">
     <p class="k crumbs"><a class="hit" href={collectionPath(c.slug)}>← {c.title}</a>{n !== null && <> · {String(n).padStart(2, '0')} / {total}</>}</p>
     <div class="body">
-      <div class="art"><MediaView token={t} size="large" alt={t.name} eager /></div>
+      <div class="art">
+        {wrap ? <a class="orig-img" href={original.url} target="_blank" rel="noopener" aria-label={`open the original of ${t.name}`}><MediaView token={t} size="large" alt={t.name} eager /></a> : <MediaView token={t} size="large" alt={t.name} eager />}
+        {original && <p class="f orig"><a class="hit" href={original.url} target="_blank" rel="noopener">original ↗</a> <span class="where">{original.where}</span></p>}
+      </div>
       <aside><WallLabel c={c} t={t} ethUsd={m.ethUsd} asOf={m.lastInventory} /></aside>
     </div>
     <nav class="pn" aria-label="works">
@@ -47,6 +53,9 @@ for (const r of recent) {
   .crumbs { margin: 16px 0 8px; }
   .body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr); gap: 40px; align-items: start; }
   .art { min-width: 0; }
+  .orig-img { display: block; }
+  .orig { margin: 6px 0 0; }
+  .orig .where { color: var(--muted); }
   aside { position: sticky; top: 24px; min-width: 0; }
   .pn { display: flex; justify-content: space-between; color: var(--dim); margin: 24px 0; font-size: 11px; }
   .pn a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
