@@ -4,9 +4,9 @@ import { catalogPieces, pieceWeight } from '../../src/lib/catalog';
 
 const col = (slug: string, p: Partial<CollectionOut> = {}) =>
   ({ slug, title: slug.toUpperCase(), code: slug.slice(0, 3).toUpperCase(), standard: 'erc721', section: 'index', techniques: ['illustration'], ...p }) as CollectionOut;
-const img = (id: string, extra: Partial<TokenOut> = {}) =>
-  ({ id, name: `n${id}`, supply: 1, image: { kind: 'image', thumb: `/media/${id}-t.webp`, large: `/media/${id}-l.webp`, file: null }, animation: null, ...extra }) as TokenOut;
-const many = (n: number) => Array.from({ length: n }, (_, i) => img(String(i + 1)));
+const img = (id: string, extra: Partial<TokenOut> = {}, tag = '') =>
+  ({ id, name: `n${id}`, supply: 1, image: { kind: 'image', thumb: `/media/${tag}${id}-t.webp`, large: `/media/${tag}${id}-l.webp`, file: null }, animation: null, ...extra }) as TokenOut;
+const many = (n: number, tag = '') => Array.from({ length: n }, (_, i) => img(String(i + 1), {}, tag));
 
 const cols = [
   col('plain'),
@@ -16,10 +16,10 @@ const cols = [
   col('empty-gen', { techniques: ['generative'] }),
 ];
 const tokens: Record<string, TokenOut[]> = {
-  plain: [...many(4), img('9', { supply: 0 }), img('10', { image: null })],
-  editions: [img('1', { supply: 250 }), img('2', { supply: 3 })],
-  lab: many(2),
-  gen: many(40),
+  plain: [...many(4, 'p'), img('9', { supply: 0 }), img('10', { image: null })],
+  editions: [img('1', { supply: 250 }, 'e'), img('2', { supply: 3 }, 'e')],
+  lab: many(2, 'l'),
+  gen: many(40, 'g'),
   'empty-gen': [],
 };
 
@@ -56,6 +56,17 @@ describe('catalogPieces', () => {
     const out = catalogPieces([col('h')], { h: [html, gif] });
     expect(out.find((p) => p.id === '1')).toMatchObject({ kind: 'iframe', src: '/media/p.html' });
     expect(out.find((p) => p.id === '2')).toMatchObject({ kind: 'img', src: '/media/g-t.webp', large: null });
+  });
+  it('never hangs the same image twice, and generative picks skip duplicates', () => {
+    const dup = (id: string) => img(id, { image: { kind: 'image', thumb: '/media/ph-t.webp', large: '/media/ph-l.webp', file: null } as TokenOut['image'] });
+    const live = (id: string) => img(id, { image: null, animation: { kind: 'html', thumb: null, large: null, file: `/media/${id}.html` } as TokenOut['animation'] });
+    const toks = [...Array.from({ length: 10 }, (_, i) => dup(String(i + 1))), ...Array.from({ length: 4 }, (_, i) => live(String(i + 11))), ...many(3, 'u').map((t) => ({ ...t, id: String(Number(t.id) + 20) }))];
+    const out = catalogPieces([col('g2', { techniques: ['generative'] })], { g2: toks });
+    expect(out).toHaveLength(5);
+    expect(new Set(out.map((p) => p.src)).size).toBe(5);
+    expect(out.filter((p) => p.src === '/media/ph-t.webp')).toHaveLength(1);
+    const two = catalogPieces([col('a'), col('b')], { a: [dup('1')], b: [dup('2'), ...many(1, 'z')] });
+    expect(two.map((p) => p.src).sort()).toEqual(['/media/ph-t.webp', '/media/z1-t.webp']);
   });
   it('gives each piece a stable weight between 0.6 and 1.8', () => {
     for (const p of pieces) {

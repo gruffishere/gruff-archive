@@ -13,7 +13,7 @@ if (wall) {
     if (!W || (Math.abs(W - lastWidth) < 0.5 && vw === lastVw)) return;
     lastWidth = W;
     lastVw = vw;
-    const gap = vw >= 768 ? 28 : 12;
+    const gap = vw >= 768 ? 26 : 14;
     const { rects, height } = salonLayout(items, W, gap, { viewport: vw });
     wall.classList.add('on');
     wall.style.height = `${Math.ceil(height)}px`;

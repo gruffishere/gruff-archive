@@ -84,13 +84,22 @@ function pieceOf(c: CollectionOut, t: TokenOut): Piece | null {
 /** The wall: every work of the non-generative collections once, five spread pieces of each generative one, mixed by a fixed-seed shuffle. */
 export function catalogPieces(collections: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>): Piece[] {
   const all: Piece[] = [];
+  // one wall, one image: a piece whose shown file is already hanging is dropped
+  const seen = new Set<string>();
   for (const c of [...collections].sort((a, b) => a.slug.localeCompare(b.slug))) {
     if (c.section !== 'index' && c.section !== 'experiments') continue;
     const ps = [...(tokensBySlug[c.slug] ?? [])]
       .sort((a, b) => idCmp(a.id, b.id))
       .map((t) => pieceOf(c, t))
-      .filter((p): p is Piece => !!p);
+      .filter((p): p is Piece => !!p)
+      .filter((p) => {
+        const key = `${p.kind}:${p.src}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     if (c.techniques.includes('generative') && ps.length > PER_GENERATIVE) {
+      // evenly spread picks over the distinct pieces, so duplicates never leave a gap in the five
       const n = ps.length;
       all.push(...Array.from({ length: PER_GENERATIVE }, (_, i) => ps[Math.floor(((i + 0.5) * n) / PER_GENERATIVE)]!));
     } else all.push(...ps);
