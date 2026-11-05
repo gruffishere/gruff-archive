@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { catalogPieces } from '../../src/lib/catalog';
+import { collections, tokensOf } from '../../src/lib/data';
 import { expect, test, type Page } from '@playwright/test';
 
 export async function checkPage(page: Page, path: string, status = 200) {
@@ -309,16 +309,16 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
   const slugs = await tiles.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.slug!));
   const per = new Map<string, number>();
   for (const s of slugs) per.set(s, (per.get(s) ?? 0) + 1);
-  // the selection rule, computed from the catalog itself: no hard-coded counts
-  const dir = join(process.cwd(), 'data/catalog');
-  const cols = JSON.parse(readFileSync(join(dir, 'collections.json'), 'utf8')) as { slug: string; techniques: string[]; section: string }[];
-  const displayable = (t: { supply: number; image: { thumb: string | null; kind: string; file: string | null } | null; animation: { kind: string; file: string | null } | null }) =>
-    t.supply > 0 && (!!t.image?.thumb || (t.animation?.kind === 'html' && !!t.animation.file) || (t.image?.kind === 'html' && !!t.image.file));
+  // expected = exactly the selection the page makes; the build may only drop pieces it cannot measure, so rendered <= expected
+  const cols = collections();
+  const expected = new Map<string, number>();
+  for (const p of catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)])))) expected.set(p.slug, (expected.get(p.slug) ?? 0) + 1);
   for (const c of cols) {
-    const toks = JSON.parse(readFileSync(join(dir, 'tokens', `${c.slug}.json`), 'utf8')) as Parameters<typeof displayable>[0][];
     const n = per.get(c.slug) ?? 0;
+    const e = expected.get(c.slug) ?? 0;
+    expect(n, c.slug).toBeLessThanOrEqual(e);
+    if (e >= 1) expect(n, `${c.slug} has works with media`).toBeGreaterThanOrEqual(1);
     if (c.techniques.includes('generative')) expect(n, `${c.slug} is generative`).toBeLessThanOrEqual(5);
-    else if (toks.some(displayable)) expect(n, `${c.slug} has works with media`).toBeGreaterThanOrEqual(1);
   }
   await expect(page.locator('#salon.on')).toBeVisible();
   const boxes = (await tiles.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height }; })));

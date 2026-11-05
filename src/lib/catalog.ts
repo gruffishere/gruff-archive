@@ -104,31 +104,33 @@ export function catalogPieces(collections: CollectionOut[], tokensBySlug: Record
 }
 
 const dims = new Map<string, Promise<{ w: number; h: number } | null>>();
-/** Width and height of a stored media file (read-only), cached for the build. */
-function dimsOf(src: string) {
-  if (!dims.has(src))
-    dims.set(
-      src,
-      (async () => {
-        try {
-          const { default: sharp } = await import('sharp');
-          const m = await sharp(await readFile(join('public', src.replace(/^\//, '')))).metadata();
-          return m.width && m.height ? { w: m.width, h: m.height } : null;
-        } catch {
-          return null;
-        }
-      })(),
-    );
-  return dims.get(src)!;
-}
-
 type Reader = (src: string) => Promise<{ w: number; h: number } | null>;
+/** Reader of stored media dimensions (read-only) under `root`, cached for the build. */
+export function mediaReader(root = 'public'): Reader {
+  return (src) => {
+    const file = join(root, src.replace(/^\//, ''));
+    if (!dims.has(file))
+      dims.set(
+        file,
+        (async () => {
+          try {
+            const { default: sharp } = await import('sharp');
+            const m = await sharp(await readFile(file)).metadata();
+            return m.width && m.height ? { w: m.width, h: m.height } : null;
+          } catch {
+            return null;
+          }
+        })(),
+      );
+    return dims.get(file)!;
+  };
+}
 
 /**
  * Attach proportions. Html works shown live are 1:1; a raster or svg piece whose file cannot be measured is dropped
  * (with one warning) rather than shown as a wrong-shaped crop.
  */
-export async function measurePieces(pieces: Piece[], read: Reader = dimsOf): Promise<SizedPiece[]> {
+export async function measurePieces(pieces: Piece[], read: Reader = mediaReader()): Promise<SizedPiece[]> {
   const out = await Promise.all(
     pieces.map(async (p): Promise<SizedPiece | null> => {
       if (p.kind === 'iframe') return { ...p, w: 1, h: 1, tw: null, lw: null };

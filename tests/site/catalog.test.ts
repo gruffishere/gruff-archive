@@ -89,15 +89,18 @@ describe('measurePieces', () => {
   });
   it('measures a viewBox-only svg through the real reader', async () => {
     const { measurePieces } = await import('../../src/lib/catalog');
-    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
-    mkdirSync('public/media', { recursive: true });
-    const f = 'public/media/__vb-test.svg';
-    writeFileSync(f, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect width="40" height="20"/></svg>');
+    const { mkdirSync, mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const root = mkdtempSync(join(tmpdir(), 'catalog-test-'));
+    mkdirSync(join(root, 'media'));
+    writeFileSync(join(root, 'media/vb.svg'), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect width="40" height="20"/></svg>');
     try {
-      const [p] = await measurePieces([{ ...base, id: '1', kind: 'img', src: '/media/__vb-test.svg' }]);
+      const { mediaReader } = await import('../../src/lib/catalog');
+      const [p] = await measurePieces([{ ...base, id: '1', kind: 'img', src: '/media/vb.svg' }], mediaReader(root));
       expect(p!.w / p!.h).toBeCloseTo(2, 1);
     } finally {
-      rmSync(f, { force: true });
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

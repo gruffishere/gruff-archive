@@ -5,9 +5,9 @@ export interface SalonResult { rects: SalonRect[]; height: number }
 
 const EPS = 1e-6;
 const TRIALS = 24;
-/** Widest a piece may be, as a share of the wall. */
 /** Smallest reference tile, so tablet widths hang fewer, larger pieces. */
 const MIN_REF = 120;
+/** Widest a piece may be, as a share of the wall. */
 const MAX_SHARE = 0.5;
 
 function rng(seed: number) {
