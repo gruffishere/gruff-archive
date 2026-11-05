@@ -101,4 +101,44 @@ Requirements:
 3. Then: `npm test`, `npm run build`, `npm run e2e`, and a visual pass over the listed-price paths, last sales, Gruffters images, BURNCALL, collab names, originals links, index experiments and /activity filters.
 4. Commit the regenerated catalog and media as one data commit.
 
+### Task 5: Site — `/catalog/`, the salon wall
+
+The artist's request (2026-11-05): a tab where all works hang together on one wall like paintings, sized by their proportions. No text, no labels, no frames, only images. Clicking a piece opens its work page. The goal is the overall view: the works meeting each other. Reference: an irregular salon hang of rectangles of different sizes and proportions with even gaps, packed in two loose bands.
+
+**Files:** `src/lib/catalog.ts`, `src/lib/salon.ts`, `src/pages/catalog.astro`, `src/scripts/catalog.ts`, `src/components/Header.astro` (nav), tests `tests/site/catalog.test.ts`, `tests/site/salon.test.ts`, `tests/e2e/smoke.spec.ts`.
+
+Requirements:
+1. **Nav.** Add `catalog` after `index`: `index · catalog · activity · keepers · techniques · experiments · about`. Add `'catalog'` to `NavName`.
+2. **Which works** — artist's decision. Pure `catalogPieces(collections, tokensBySlug): Piece[]`:
+   - **Non-generative collections:** every work once. An erc1155 edition counts as one piece, not one per copy. Collections in both `index` and `experiments` sections count.
+   - **Generative collections:** a collection is generative when its `techniques` include `generative` (Gruffters, FACETS, Phigures, OVVN). Take 5 pieces each, chosen deterministically and spread evenly across the token ids that have displayable media. An optional future override `wallPicks` per collection is out of scope; don't add it.
+   - **Excluded:** works with `supply <= 0` and works without displayable media. Gruffters stays excluded until its OpenSea images exist; it appears automatically after the keyed inventory.
+   - **Order:** interleave collections so the wall mixes works rather than grouping them. The order is deterministic, e.g. a seeded shuffle with a fixed seed.
+   - Unit-test the counts on fixtures and determinism (same input, same output).
+3. **Proportions** come from each piece's real image.
+   - At build, read the width/height of the local file that will be shown, using `sharp` (already a dependency) on `public/media/<file>` (read-only).
+   - For html works shown live, use 1:1.
+   - Cache the result within the build.
+4. **Salon layout.** Pure `salonLayout(items: { w: number; h: number; weight: number }[], containerWidth: number, gap: number): { x: number; y: number; w: number; h: number }[]` plus the total height, in `src/lib/salon.ts`.
+   - Each piece keeps its aspect ratio.
+   - Its area is varied by a deterministic per-piece weight between about 0.6 and 1.8, so sizes differ like a hand-hung wall.
+   - Packing is skyline/bottom-left style: no overlaps, an even `gap` (about 24–32 px desktop), no piece wider than the container.
+   - Unit-test: no overlaps, every rect inside the container, aspect preserved within 1 %, deterministic.
+   - At `< 768px`, use 2 columns of equal width, masonry style (shortest column first). At `< 380px`, 1 column.
+5. **Rendering.**
+   - The page is pure `#000`. The heading is only the quiet page title in the usual header; no extra text on the wall.
+   - Each piece is an `<a href={workPath}>` with `aria-label="<title>, <collection>"`.
+     - Images: `<img>` with `srcset` from thumb and large, `loading="lazy"`, `decoding="async"`. The client sets `sizes` from the computed tile width.
+     - Animated GIF originals show the static thumb/large webp. They never auto-play on the wall.
+     - Pixel art uses `image-rendering: pixelated` when the media is pixelated (`chooseMedia` knows).
+     - HTML works: `<iframe sandbox="allow-scripts" loading="lazy">` with `pointer-events: none`. Never `allow-same-origin`.
+   - Hover/focus: a subtle lift only, e.g. a 1px outline in `var(--fg)` or slight brightness. No captions. Visible focus for keyboard users.
+   - **No-JS fallback:** server-render a simple flex-wrap of the same pieces at a fixed height, so the page works without scripts. The client script then positions pieces absolutely from `salonLayout` and re-lays out on resize (debounced). Styles for runtime state use `:global`.
+   - Mobile: no horizontal scroll at 360 px.
+6. **e2e:**
+   - `/catalog/` loads, and the nav shows `catalog` as current.
+   - There is at least one piece per non-generative collection that has media, and at most 5 per generative collection (count by `data-slug`).
+   - No two piece boxes overlap, checked on desktop by comparing bounding boxes.
+   - Clicking the first piece navigates to `/w/…/`.
+
 ### Later (with the artist): techniques page redesign.
