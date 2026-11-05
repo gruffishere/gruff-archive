@@ -404,12 +404,15 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
   const isPhone = info.project.name === 'phone';
   if (isPhone) await page.getByRole('button', { name: 'menu' }).click();
   await expect(page.locator('nav a[aria-current="page"]')).toHaveText('catalog');
+  // the client swaps in a fresh random draw; read the wall once it has hung
+  await expect(page.locator('#salon.on')).toBeVisible();
+  await expect(page.locator('#salon.pending')).toHaveCount(0);
   const tiles = page.locator('#salon a.tile');
   expect(await tiles.count()).toBeGreaterThan(20);
   const slugs = await tiles.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.slug!));
   const per = new Map<string, number>();
   for (const s of slugs) per.set(s, (per.get(s) ?? 0) + 1);
-  // expected = exactly the selection the page makes; the build may only drop pieces it cannot measure, so rendered <= expected
+  // expected = every piece the wall may draw from; a random draw holds about 80 of them, so rendered <= expected
   const cols = collections();
   const expected = new Map<string, number>();
   for (const p of catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)])))) expected.set(p.slug, (expected.get(p.slug) ?? 0) + 1);
@@ -417,10 +420,8 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
     const n = per.get(c.slug) ?? 0;
     const e = expected.get(c.slug) ?? 0;
     expect(n, c.slug).toBeLessThanOrEqual(e);
-    if (e >= 1) expect(n, `${c.slug} has works with media`).toBeGreaterThanOrEqual(1);
     if (c.techniques.includes('generative')) expect(n, `${c.slug} is generative`).toBeLessThanOrEqual(5);
   }
-  await expect(page.locator('#salon.on')).toBeVisible();
   const boxes = (await tiles.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height }; })));
   for (let i = 0; i < boxes.length; i++)
     for (let j = 0; j < i; j++) {

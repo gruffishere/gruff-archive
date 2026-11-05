@@ -10,7 +10,9 @@ const platform = platformLinkUnlessListed(c, t.id);
 const edition = editionText(t, c);
 const collabs = t.collaborators ?? [];
 const mintText = t.mint ? mintValue(t.mint) : '—';
-const owners = sortOwners(t.owners);
+// The keepers list matches its count: the artist's own copies and excluded holders are not keepers.
+const owners = sortOwners(t.owners.filter((o) => !o.notKeeper));
+const soleOwner = owners[0] ?? t.owners[0];
 const snapshot = t.listing?.priceWei ?? '';
 ---
 <div class="label">
@@ -38,7 +40,7 @@ const snapshot = t.listing?.priceWei ?? '';
       </ul>
     </details>
   ) : (
-    t.owners[0] && <div class="lr"><span class="l">owner</span><span class="v">{displayName(t.owners[0].address, t.owners[0].ens)}{t.owners[0].escrow ? ' (on foundation)' : ''}</span></div>
+    soleOwner && <div class="lr"><span class="l">owner</span><span class="v">{displayName(soleOwner.address, soleOwner.ens)}{soleOwner.escrow ? ' (on foundation)' : ''}</span></div>
   )}
   <div class="lr"><span class="l">edition</span><span class="v">{edition}{mintingText(c) && <> · <span class="lower mnote">still minting</span></>}</span></div>
   <div class="lr"><span class="l">contract</span><button class="v copy" type="button" data-copy={c.contract}>{shortAddress(c.contract)} #{t.id}</button></div>

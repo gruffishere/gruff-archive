@@ -2,10 +2,13 @@ import { collections, tokensOf } from '../../src/lib/data';
 import { expect, test } from '@playwright/test';
 import { checkPage } from './helpers';
 
-// an edition with several owners shows one "keepers" tab instead of "holds N" rows
+// the list holds keepers only: the artist's own copies and excluded holders are not keepers
+const keepersOf = (t: { owners: { notKeeper?: true }[] }) => t.owners.filter((o) => !o.notKeeper);
+
+// an edition with several keepers shows one "keepers" tab instead of "holds N" rows
 const multi = () => {
   for (const c of collections().filter((x) => x.standard === 'erc1155'))
-    for (const t of tokensOf(c.slug)) if (t.owners.length > 1) return { slug: c.slug, t };
+    for (const t of tokensOf(c.slug)) if (keepersOf(t).length > 1) return { slug: c.slug, t };
   return null;
 };
 
@@ -22,7 +25,8 @@ test('an edition shows one keepers tab that opens the current keepers', async ({
   await expect(page.locator('.label .klist')).toBeHidden();
   await summary.click();
   const rows = page.locator('.label .klist li');
-  await expect(rows).toHaveCount(t.owners.length);
+  await expect(rows).toHaveCount(keepersOf(t).length);
+  await expect(summary).toContainText(String(t.holderCount));
   const first = rows.first().locator('a');
   await expect(first).toHaveAttribute('href', /^https:\/\/etherscan\.io\/address\/0x/);
   await expect(first).toHaveAttribute('target', '_blank');
@@ -35,10 +39,10 @@ test('an edition shows one keepers tab that opens the current keepers', async ({
 
 test('/w/collabs/1/ has one keepers summary and no holds rows', async ({ page }) => {
   const t = tokensOf('collabs').find((x) => x.id === '1')!;
-  test.skip(t.owners.length < 2, 'collabs/1 has a single owner');
+  test.skip(keepersOf(t).length < 2, 'collabs/1 has a single keeper');
   await checkPage(page, '/w/collabs/1/');
   await expect(page.locator('.label summary', { hasText: 'keepers' })).toHaveCount(1);
   await page.locator('.label summary').click();
-  await expect(page.locator('.label .klist li')).toHaveCount(t.owners.length);
+  await expect(page.locator('.label .klist li')).toHaveCount(keepersOf(t).length);
   await expect(page.locator('.label', { hasText: /\bholds\b/ })).toHaveCount(0);
 });
