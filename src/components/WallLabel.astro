@@ -59,7 +59,7 @@ const snapshot = t.listing?.priceWei ?? '';
   .keepers summary::-webkit-details-marker { display: none; }
   .keepers[open] .caret { display: inline-block; transform: rotate(180deg); }
   .klist { list-style: none; margin: 0 0 6px; padding: 0 0 0 12px; }
-  .klist.long { max-height: 320px; overflow-y: auto; }
+  .klist.long { max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #333 transparent; }
   .klist :global(li.lr) { padding: 0; }
   .klist a { text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
   .mnote { color: var(--muted); }
