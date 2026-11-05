@@ -4,14 +4,14 @@ import { collections, tokensOf } from '../lib/data';
 import { experimentCollections, firstYear } from '../lib/collections';
 import { chooseMedia } from '../lib/media';
 import { collectionPath } from '../lib/links';
-import { ROOMS, roomMeta, roomPath } from '../lib/rooms';
+import { ROOMS, roomDateLabel, roomMeta, roomPath } from '../lib/rooms';
 // the experiment collections, then the rooms, as one list of quiet cards
 const collectionCards = experimentCollections(collections()).map((c) => {
   const t = tokensOf(c.slug).find((x) => x.id === c.coverTokenId) ?? tokensOf(c.slug)[0];
   const m = t ? chooseMedia(t, 'thumb') : null;
   return { href: collectionPath(c.slug), title: c.title, src: m?.src ?? null, pixelated: !!m?.pixelated, top: c.accession, status: `${firstYear(c)} · ${c.works} works` };
 });
-const roomCards = ROOMS.map((r) => ({ href: roomPath(r.slug), title: r.title, src: r.cover, pixelated: false, top: r.medium ?? null, status: roomMeta({ ...r, medium: undefined }).join(' · ') }));
+const roomCards = ROOMS.map((r) => ({ href: roomPath(r.slug), title: r.title, src: r.cover, pixelated: false, top: roomDateLabel(r), status: (roomDateLabel(r) === '—' ? roomMeta(r) : roomMeta(r).slice(1)).join(' · ') }));
 const cards = [...collectionCards, ...roomCards];
 ---
 <Base title="experiments — gruff" current="experiments">

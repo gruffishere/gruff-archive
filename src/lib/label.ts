@@ -11,6 +11,12 @@ export function editionText(t: Pick<TokenOut, 'supply'>, c: Pick<CollectionOut, 
   return c.standard === 'erc1155' ? `edition of ${t.supply} · ${std}` : `1/1${(c.supplyCap ?? c.works) > 1 ? `/${c.supplyCap ?? c.works}` : ''} · ${std}`;
 }
 
+/** Owners for the keepers list: most copies first, then by the name shown (ens or short address), lowercase. */
+export function sortOwners<T extends { address: string; ens?: string | null; quantity: number }>(owners: readonly T[]): T[] {
+  const name = (o: T) => displayName(o.address, o.ens).toLowerCase();
+  return [...owners].sort((a, b) => b.quantity - a.quantity || (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0));
+}
+
 /** The quiet marker of a collection that is still being minted. */
 export const mintingText = (c: { minting?: boolean }): string | null => (c.minting ? 'still minting' : null);
 

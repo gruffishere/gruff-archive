@@ -22,7 +22,8 @@ export interface TokenOut {
   listing: Listing | null;
   supply: number;
   holderCount: number;
-  owners: { address: string; ens: string | null; quantity: number; escrow?: true }[];
+  /** All current owners. `notKeeper` marks the artist and config `excludeHolders`: shown as owners, never counted as keepers. */
+  owners: { address: string; ens: string | null; quantity: number; escrow?: true; notKeeper?: true }[];
   recent: ArchiveEvent[];
 }
 
@@ -90,7 +91,7 @@ export function buildTokens(i: TokenInputs): TokenOut[] {
     const evs = eventsByToken.get(id) ?? [];
     const holders = [...(i.balances.get(id) ?? new Map<string, bigint>()).entries()].sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0));
 
-    const owners = ownersOf(holders, evs, i);
+    const owners = ownersOf(holders, evs, i).map((o) => (isKeeperAddress(o.address, i.artist, i.excludeHolders) ? o : { ...o, notKeeper: true as const }));
 
     let mint = i.mints.get(id) ?? null;
     if (mint && mint.priceWei === null) {
@@ -113,8 +114,8 @@ export function buildTokens(i: TokenInputs): TokenOut[] {
       lastSale: lastSale ? { at: lastSale.timestamp, priceWei: lastSale.priceWei! } : null,
       listing: i.listings.get(id) ?? null,
       supply: holders.reduce((sum, [, q]) => sum + Number(q), 0),
-      holderCount: owners.filter((o) => isKeeperAddress(o.address, i.artist, i.excludeHolders)).length,
-      owners: owners.slice(0, 5),
+      holderCount: owners.filter((o) => !o.notKeeper).length,
+      owners,
       recent: evs.slice(0, 10),
     };
   });

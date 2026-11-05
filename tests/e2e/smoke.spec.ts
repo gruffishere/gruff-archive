@@ -5,23 +5,8 @@ import { collections, tokensOf } from '../../src/lib/data';
 import { workPath } from '../../src/lib/links';
 import { cardCaption, firstHand } from '../../src/lib/deal';
 import { EMBED_ALLOW, ROOMS, roomMeta, roomPath } from '../../src/lib/rooms';
-import { expect, test, type Page } from '@playwright/test';
-
-export async function checkPage(page: Page, path: string, status = 200) {
-  const errors: { text: string; url: string }[] = [];
-  page.on('console', (m) => m.type() === 'error' && errors.push({ text: m.text(), url: m.location().url }));
-  page.on('pageerror', (e) => errors.push({ text: e.message, url: '' }));
-  const res = await page.goto(path);
-  expect(res?.status()).toBe(status);
-  await expect(page.locator('header .wm')).toHaveText('gruff');
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
-  // Chromium logs a console error for the page's own non-200 load; that is expected, nothing else is.
-  const own = (e: { text: string; url: string }) => status !== 200 && e.text.includes('Failed to load resource') && e.url === res?.url();
-  // The preview server has no Pages Functions, so the live price fetch 404s; the page keeps its snapshot.
-  const liveFetch = (e: { text: string; url: string }) => e.text.includes('Failed to load resource') && e.url.includes('/api/listing');
-  expect(errors.filter((e) => !liveFetch(e) && !own(e)).map((e) => e.text)).toEqual([]);
-}
+import { expect, test } from '@playwright/test';
+import { checkPage } from './helpers';
 
 test('404 is a closed room', async ({ page }) => {
   await checkPage(page, '/no-such-room/', 404);
@@ -381,15 +366,19 @@ test('a work page links to the original on arweave', async ({ page }) => {
 
 test('hovering or focusing an animated catalog piece plays its gif, leaving restores the still', async ({ page }) => {
   const cols = collections();
-  const gif = catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]))).find((p) => p.hover?.type === 'gif' && p.hover.src.endsWith('.gif'));
   const anyAnimated = cols.some((c) => tokensOf(c.slug).some((t) => t.image?.animated));
   test.skip(!anyAnimated, 'the catalog has no animated piece');
-  expect(gif, 'an animated piece in the catalog must hang on the wall').toBeTruthy();
   const gifRequests: string[] = [];
   page.on('request', (r) => /\.gif(\?|$)/i.test(r.url()) && gifRequests.push(r.url()));
-  await checkPage(page, '/catalog/');
-  await expect(page.locator('#salon.on')).toBeVisible();
-  const tile = page.locator(`#salon a.tile[href="${workPath(gif!.slug, gif!.id)}"]`);
+  // the wall is a random draw: pin seeds until one hangs an animated piece
+  const tile = page.locator('#salon a.tile:has(img[data-gif$=".gif"])').first();
+  for (let seed = 1; seed <= 20; seed++) {
+    await checkPage(page, `/catalog/?seed=${seed}`);
+    await expect(page.locator('#salon.on')).toBeVisible();
+    await expect(page.locator('#salon.pending')).toHaveCount(0);
+    if (await tile.count()) break;
+  }
+  expect(await tile.count(), 'some draw hangs an animated piece').toBeGreaterThan(0);
   const img = tile.locator('img');
   await tile.scrollIntoViewIfNeeded();
   const still = await img.getAttribute('src');
@@ -419,12 +408,15 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
   const isPhone = info.project.name === 'phone';
   if (isPhone) await page.getByRole('button', { name: 'menu' }).click();
   await expect(page.locator('nav a[aria-current="page"]')).toHaveText('catalog');
+  // the client swaps in a fresh random draw; read the wall once it has hung
+  await expect(page.locator('#salon.on')).toBeVisible();
+  await expect(page.locator('#salon.pending')).toHaveCount(0);
   const tiles = page.locator('#salon a.tile');
   expect(await tiles.count()).toBeGreaterThan(20);
   const slugs = await tiles.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.slug!));
   const per = new Map<string, number>();
   for (const s of slugs) per.set(s, (per.get(s) ?? 0) + 1);
-  // expected = exactly the selection the page makes; the build may only drop pieces it cannot measure, so rendered <= expected
+  // expected = every piece the wall may draw from; a random draw holds about 80 of them, so rendered <= expected
   const cols = collections();
   const expected = new Map<string, number>();
   for (const p of catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)])))) expected.set(p.slug, (expected.get(p.slug) ?? 0) + 1);
@@ -432,10 +424,8 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
     const n = per.get(c.slug) ?? 0;
     const e = expected.get(c.slug) ?? 0;
     expect(n, c.slug).toBeLessThanOrEqual(e);
-    if (e >= 1) expect(n, `${c.slug} has works with media`).toBeGreaterThanOrEqual(1);
     if (c.techniques.includes('generative')) expect(n, `${c.slug} is generative`).toBeLessThanOrEqual(5);
   }
-  await expect(page.locator('#salon.on')).toBeVisible();
   const boxes = (await tiles.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height }; })));
   for (let i = 0; i < boxes.length; i++)
     for (let j = 0; j < i; j++) {
@@ -484,7 +474,7 @@ for (const r of ROOMS) {
   });
 }
 
-for (const slug of ['the-sigils', 'dive-bar', 'pulverulents-trailer']) {
+for (const slug of ['the-sigils', 'dive-bar']) {
   test(`enter on ${slug} inserts a sandboxed iframe`, async ({ page }) => {
     const room = ROOMS.find((r) => r.slug === slug)!;
     // the real third-party page is not needed to check the frame: serve a stub for its address

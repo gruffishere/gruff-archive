@@ -149,7 +149,7 @@ describe('buildTokens owners', () => {
 
   it('keeps the artist as an owner but does not count it as a holder', () => {
     const t = find('2', {});
-    expect(t?.owners).toEqual([{ address: ARTIST, ens: null, quantity: 1 }]);
+    expect(t?.owners).toEqual([{ address: ARTIST, ens: null, quantity: 1, notKeeper: true }]);
     expect(t?.holderCount).toBe(0);
   });
 
@@ -253,7 +253,7 @@ describe('excludeHolders (M3)', () => {
   it('drops them from collection holders and token holderCount but keeps them as owners', () => {
     const ex = new Set([K2]);
     const tokens = buildTokens({ ...inputs, excludeHolders: ex });
-    expect(tokens[0].owners.map((o) => o.address)).toEqual([K2]);
+    expect(tokens[0].owners).toEqual([{ address: K2, ens: 'keeper.eth', quantity: 1, notKeeper: true }]);
     expect(tokens[0].holderCount).toBe(0);
     const col = buildCollection({ cfg, artist: ARTIST, year: 2023, tokens, balances: inputs.balances, floorWei: null, osDescription: null, staleSince: null, excludeHolders: ex });
     expect(col.holders).toBe(0);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut, TokenOut } from '../../src/lib/data';
-import { editionText, mintingText, fitInside, fitText, labelFilename, labelImage, labelLines, safeJson, sizedSvg, splitLine, svgIntrinsic } from '../../src/lib/label';
+import { sortOwners, editionText, mintingText, fitInside, fitText, labelFilename, labelImage, labelLines, safeJson, sizedSvg, splitLine, svgIntrinsic } from '../../src/lib/label';
 
 const c = { title: 'SILVER SURFER', standard: 'erc721', firstMint: '2023-03-27T10:00:00.000Z' } as CollectionOut;
 const t = {
@@ -133,6 +133,16 @@ describe('supply cap and still minting', () => {
     expect(mintingText({ minting: true })).toBe('still minting');
     expect(mintingText({ minting: false })).toBeNull();
     expect(mintingText({})).toBeNull();
+  });
+});
+
+describe('sortOwners', () => {
+  const o = (address: string, quantity: number, ens: string | null = null) => ({ address, ens, quantity });
+  it('sorts by quantity, then by display name, without touching the input', () => {
+    const input = [o('0x00000000000000000000000000000000000000b2', 1), o('0x00000000000000000000000000000000000000a1', 4), o('0x00000000000000000000000000000000000000c3', 1, 'Alice.eth'), o('0x00000000000000000000000000000000000000d4', 1, 'zed.eth')];
+    const copy = JSON.stringify(input);
+    expect(sortOwners(input).map((x) => x.address.slice(-2))).toEqual(['a1', 'b2', 'c3', 'd4']);
+    expect(JSON.stringify(input)).toBe(copy);
   });
 });
 

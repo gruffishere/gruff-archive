@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { collections, latestActivity, meta, timeline, tokensOf } from '../lib/data';
 import { archiveSpan, countLabel, filterTags, firstYear, INDEX_FILTERS, ledgerCounts, ledgerEntries } from '../lib/collections';
-import { ROOMS, roomFilterTags, roomPath } from '../lib/rooms';
+import { ROOMS, roomDateLabel, roomFilterTags, roomPath } from '../lib/rooms';
 import { chooseMedia } from '../lib/media';
 import { eventLabel, formatEth, formatStamp } from '../lib/format';
 import { collectionPath, workPath } from '../lib/links';
@@ -41,7 +41,7 @@ const months = timeline().map((t) => t.month);
           {rows.map(({ room, c, cover, preview, price }) => room ? (
             <a class="row" href={roomPath(room.slug)} data-code={`room:${room.slug}`} data-since={room.since} data-exp="true" data-filters={roomFilterTags().join(' ')} data-preview={preview ?? ''} data-title={room.title} data-year={String(room.year)} data-meta={room.status} data-price="">
               <img class="th" src={room.cover} alt="" loading="lazy" />
-              <span class="k no">—</span>
+              <span class="k no">{roomDateLabel(room)}</span>
               <span class="lead ti"><span class="exp">exp.</span><span class="tt">{room.title}</span></span>
               <span class="k pl">{room.medium ?? '—'}</span>
               <span class="k yr">{room.year}</span>

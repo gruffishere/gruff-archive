@@ -78,6 +78,23 @@ Proje 5. adımda oluştu. Anahtarın ayarı şurada durur: projenin sayfasında 
 
 Anahtarı sadece bu kutuya girersin. Repoya yazılmaz.
 
+## 6b. Ziyaretçi notları ("leave gruff a note")
+
+Sitede ziyaretçiler birkaç saniye sonra küçük bir kutuda sana not bırakabilir. Notlar senin Cloudflare hesabında saklanır. Okumak için gizli bir sayfan olur.
+
+1. Cloudflare panelinde **Storage & Databases** → **KV** → **Create a namespace** (Create). Adı: `gruff-notes`.
+2. Pages projene git: **Settings** → **Bindings** (Cloudflare bazen **Functions** → **KV namespace bindings** der) → **Add** → **KV namespace**. Variable name: `NOTES` (tam olarak böyle, büyük harfle). Namespace olarak `gruff-notes` seç. **Production** ve **Preview** için ekle.
+3. Aynı sayfada **Variables and Secrets** → **Add**. Type: **Secret**. Variable name: `NOTES_KEY`. Value: uzun, kendi seçtiğin bir cümle (örneğin dört beş kelimelik, tahmin edilemez bir cümle). Bunu kimseyle paylaşma ve bir yere not et. Production ve Preview için ekle.
+4. Yeni bir dağıtım gerekir: **Deployments** → son dağıtımın yanındaki **⋯** → **Retry deployment**.
+5. Bitince `senin-adresin/notes/` sayfasını aç. Anahtar kutusuna `NOTES_KEY` cümlesini yaz ve **open** düğmesine bas. Doğruysa notlar listelenir ve tarayıcın anahtarı hatırlar. Başka bir bilgisayarda bir kez daha yazman gerekir. Unutturmak için sayfadaki **forget key** düğmesine bas.
+
+Bilmen gerekenler:
+
+- Bu sayfa menüde yoktur ve arama motorlarına kapalıdır. Adresini sen bilirsin.
+- Notlar senin Cloudflare hesabında kalır. Ücretsiz planın sınırları (günde 1.000 yazma, 100.000 okuma) bir sanat sitesi için çok geniştir.
+- IP adresleri hiç kaydedilmez; yalnızca bir saatliğine, tekrar gönderimi sınırlamak için tuzlanmış bir özet tutulur.
+- Adımları yapmadan önce kutu görünür ama gönderim "could not send right now" der. Site bunun dışında normal çalışır.
+
 ## 7. Kendi domainin
 
 1. Pages projende **Custom domains** → **Set up a custom domain**.
