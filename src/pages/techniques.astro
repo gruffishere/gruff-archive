@@ -1,0 +1,55 @@
+---
+import Base from '../layouts/Base.astro';
+import { collections, timeline, tokensOf } from '../lib/data';
+import { balance, barPct, onChainShare, techniqueYears } from '../lib/techniques';
+import { monthLabel } from '../lib/timeline';
+const cols = collections();
+const tokens = Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]));
+const tv = techniqueYears(cols, tokens);
+const max = Math.max(1, ...tv.rows.flatMap((r) => r.counts));
+const b = balance(cols);
+const share = onChainShare(cols);
+const tl = timeline();
+const hmax = Math.max(1, ...tl.map((t) => t.holders));
+const fmt = (n: number) => n.toLocaleString('en-US');
+const meter = (v: number, m: number) => `${barPct(v, m)}%`;
+const quarterly = tl.filter((_, i) => i % 3 === 0 || i === tl.length - 1);
+---
+<Base title="techniques — gruff" current="techniques">
+  <section class="page">
+    <h2 class="k">technique × year <span class="f">· source: catalog</span></h2>
+    <div class="tbl" style={`--cols:${tv.years.length}`}>
+      <span></span>{tv.years.map((y) => <span class="k">{y}</span>)}
+      {tv.rows.map((r) => (<><span>{r.technique}</span>{r.counts.map((n) => n > 0
+        ? <span class="cell" data-tech={r.technique} title={`${n} works`}><span class="meter" role="img" aria-label={`${fmt(n)} works`}><i style={`width:${meter(n, max)}`}></i></span><span class="m num">{fmt(n)}</span></span>
+        : <span class="cell f" data-tech={r.technique} title="0 works">—</span>)}</>))}
+    </div>
+    <h2 class="k">1/1 ←→ editions</h2>
+    <p class="bal"><span>1/1 · {fmt(b.oneOfOne)} works</span><span>{fmt(b.editionPieces)} edition pieces</span></p>
+    <span class="meter split" role="img" aria-label={`${fmt(b.oneOfOne)} one-of-one works, ${fmt(b.editionPieces)} edition pieces`}><i style={`width:${(b.oneOfOne / Math.max(1, b.oneOfOne + b.editionPieces)) * 100}%`}></i></span>
+    <h2 class="k">on-chain</h2>
+    <span class="meter" role="img" aria-label={`${Math.round(share * 100)}% on-chain`}><i style={`width:${share * 100}%`}></i></span>
+    <p>{Math.round(share * 100)}% of works live entirely on-chain</p>
+    <h2 class="k">keepers over time</h2>
+    <div class="growth">{quarterly.map((t) => <div class="g"><span class="k">{monthLabel(t.month)}</span><span class="meter" role="img" aria-label={`${fmt(t.holders)} keepers`}><i style={`width:${meter(t.holders, hmax)}`}></i></span><span class="m">{fmt(t.holders)}</span></div>)}</div>
+  </section>
+</Base>
+<style>
+  h2 { font: 400 11px var(--mono); letter-spacing: .04em; margin: 34px 0 12px; }
+  h2:first-child { margin-top: 26px; }
+  .tbl { display: grid; grid-template-columns: 140px repeat(var(--cols), minmax(0, 1fr)); gap: 8px 14px; align-items: center; }
+  .cell { display: flex; gap: 8px; align-items: center; white-space: nowrap; min-width: 0; }
+  .cell .meter { flex: 1; min-width: 0; }
+  .meter { display: block; height: 2px; background: var(--line); }
+  .meter i { display: block; height: 100%; background: var(--fg); }
+  .split { height: 4px; }
+  .bal + .meter, h2 + .meter { margin-top: 6px; }
+  p { margin: 10px 0 0; }
+  .bal { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 0; }
+  .g { display: grid; grid-template-columns: 70px minmax(0, 1fr) 60px; gap: 12px; padding: 6px 0; align-items: center; }
+  .g .m { text-align: right; }
+  @media (max-width: 767px) {
+    .tbl { grid-template-columns: 96px repeat(var(--cols), minmax(0, 1fr)); gap: 6px 6px; }
+    .cell .num { font-size: 10px; }
+  }
+</style>

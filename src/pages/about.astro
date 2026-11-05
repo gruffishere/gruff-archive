@@ -1,0 +1,23 @@
+---
+import Base from '../layouts/Base.astro';
+import { SOCIALS, STATEMENT } from '../lib/site';
+---
+<Base title="about — gruff" current="about">
+  <section class="page about">
+    <p class="lower stmt">{STATEMENT}</p>
+    <p class="tagline">archive emotions before they fade</p>
+    <ul class="socials">
+      {SOCIALS.map((s) => <li class="lr"><span class="l">{s.label}</span><a class="v" href={s.url} rel="me noopener" target="_blank">{s.url.replace('https://', '')} ↗</a></li>)}
+    </ul>
+  </section>
+</Base>
+<style>
+  .about { max-width: 720px; }
+  .stmt { font-size: 22px; margin: 40px 0 6px; }
+  .tagline { margin: 0 0 40px; }
+  .socials { list-style: none; padding: 0; margin: 0; }
+  .socials li { align-items: center; }
+  .socials .l { min-width: 0; }
+  .socials a { min-height: 44px; display: inline-flex; align-items: center; justify-content: flex-end; min-width: 0; overflow-wrap: anywhere; }
+  @media (max-width: 767px) { .stmt { font-size: 18px; } }
+</style>

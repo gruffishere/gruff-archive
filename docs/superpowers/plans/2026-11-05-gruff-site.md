@@ -2785,3 +2785,14 @@ Co-Authored-By: (your model name) <noreply@anthropic.com>"
 - Spec §5 pages: index (Task 3) + scrubber (4) + pulse (3); collection (5); work page A layout + activity + print label (6, 8); /activity (9); /keepers (10); /techniques (11); /about (12); /experiments (12); 404 (1). §5.1/5.2 visitors' book, verified badge, back room → plan 3. §6 visual language → Tasks 1, 3, 6 (tokens, wordmark ink, tagline fade, dotted leaders, big price, no accent/grain). §7 mobile → every page's CSS + e2e at 390 px. Live price (§3) → Task 7. Cloudflare limits → Task 6 check-dist. Deploy → Task 13.
 - Deviation from spec §4.4 (accepted): large collections are generated as static pages too (≈3,900 work pages + ≈6–7k media files stay under the 20,000-file limit; `check-dist` fails the build above 19,000), so no `_redirects` template is needed.
 - Open item for the controller: confirm social URLs before Task 12.
+- Deferred to plan 3 (final review I8): spec §5 keeper extras, namely a few small images in each keeper row and a 2023-to-now acquisitions timeline in the expanded details. The data exists (`holdings`, the activity months); the keepers page ships without them.
+- Accepted deviations from the spec (final review recommendation 6), to be written into the spec:
+  - Techniques use CSS meters instead of the █░ glyph bars.
+  - Token titles keep their original case (spec §6 says titles are uppercase).
+  - No `_redirects` fallback (§4.4); every work page is static.
+  - The index meta line has no "N works".
+  - The index pulse line links to the work, not to /activity.
+  - /keepers renders all keepers client-side rather than 300 rows plus a JSON file.
+  - §8's "every token has an image and a page, codes unique" is enforced by the indexer, not by `check-dist`.
+- Plan 1 follow-up: every collection has `wallText: null`; the spec says to fall back to the contract metadata description, so collection pages open without wall text for now.
+- Tokens with `supply === 0` (burned or unclaimed) are hidden from collection grids and counts; their work pages stay as a record and read "none in circulation".

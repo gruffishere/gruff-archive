@@ -1,0 +1,38 @@
+---
+import Base from '../../layouts/Base.astro';
+import ActivityTable from '../../components/ActivityTable.astro';
+import { activityMonth, activityMonths, keepers, latestActivity, meta, type ActivityRow } from '../../lib/data';
+import KindChips from '../../components/KindChips.astro';
+import { collapseMints, summary, summaryMonths } from '../../lib/activity';
+import { formatEth, formatStamp } from '../../lib/format';
+import { monthLabel } from '../../lib/timeline';
+const m = meta();
+const now = new Date(m.lastInventory);
+const latest = latestActivity();
+const shown = collapseMints(latest);
+// The summary reads whole month files, not the latest 200 rows, so a busy month cannot make it undercount.
+const available = new Set(activityMonths());
+const byId = new Map<string, ActivityRow>();
+for (const mo of summaryMonths(now)) if (available.has(mo)) for (const r of activityMonth(mo)) byId.set(r.id, r);
+const s = summary([...byId.values()], keepers(), now);
+---
+<Base title="activity — gruff" current="activity">
+  <section class="page">
+    <div class="sum">
+      <div class="k">last 30 days<span>{s.sales} sales</span></div>
+      <div class="k">volume<span>{formatEth(s.volumeWei)}</span></div>
+      <div class="k">new keepers<span>{s.newKeepers}</span></div>
+      <div class="k">last inventory<span data-ago={m.lastInventory}>{formatStamp(m.lastInventory)}</span></div>
+    </div>
+    <KindChips empty={`nothing of this kind in the latest ${shown.length} entries — see the monthly archive below.`} />
+    <ActivityTable rows={shown} showWork groupDays />
+    <p class="k months">earlier → {activityMonths().map((mo, i) => <>{i > 0 && ' · '}<a href={`/activity/${mo}/`}>{monthLabel(mo)}</a></>)}</p>
+  </section>
+</Base>
+<style>
+  .sum { display: flex; gap: 28px; flex-wrap: wrap; margin: 26px 0 16px; }
+  .sum span { display: block; font-size: 22px; color: var(--fg); margin-top: 2px; text-transform: none; }
+  .months { margin-top: 20px; }
+  .months a { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 4px; }
+</style>
+<script src="../../scripts/activity.ts"></script>

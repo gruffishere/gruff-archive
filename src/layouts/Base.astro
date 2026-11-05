@@ -1,0 +1,37 @@
+---
+import '@fontsource/castoro/400.css';
+import '@fontsource/dm-mono/300.css';
+import '@fontsource/dm-mono/400.css';
+import '@fontsource/dm-mono/500.css';
+import '../styles/global.css';
+import Header, { type NavName } from '../components/Header.astro';
+interface Props { title: string; description?: string; current?: NavName }
+const { title, description = 'gruff — archive emotions before they fade.', current } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta name="theme-color" content="#000000" />
+  </head>
+  <body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <filter id="ink" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G" result="d" />
+        <feGaussianBlur in="d" stdDeviation="0.45" result="b" />
+        <feComponentTransfer in="b"><feFuncA type="table" tableValues="0 0 0.6 1 1" /></feComponentTransfer>
+      </filter>
+    </svg>
+    <Header current={current} />
+    <main><slot /></main>
+    <slot name="footer" />
+    <script src="../scripts/idle.ts"></script>
+    <script src="../scripts/ago.ts"></script>
+  </body>
+</html>

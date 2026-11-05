@@ -1,0 +1,112 @@
+---
+import Base from '../layouts/Base.astro';
+import { collections, latestActivity, meta, timeline, tokensOf } from '../lib/data';
+import { archiveSpan, filterTags, firstYear, indexCollections, INDEX_FILTERS } from '../lib/collections';
+import { chooseMedia } from '../lib/media';
+import { eventLabel, formatEth, formatStamp } from '../lib/format';
+import { collectionPath, workPath } from '../lib/links';
+
+const all = collections();
+const rows = indexCollections(all).map((c) => {
+  const cover = tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0];
+  const preview = cover ? (chooseMedia(cover, 'large').kind === 'img' && !cover.image?.animated ? chooseMedia(cover, 'large').src : chooseMedia(cover, 'thumb').src) : null;
+  const price = cover?.listing ? formatEth(cover.listing.priceWei) : null;
+  return { c, cover, preview, price };
+});
+const m = meta();
+const now = new Date(m.lastInventory);
+const latest = latestActivity()[0];
+const keepersTotal = timeline().at(-1)?.holders ?? 0;
+const months = timeline().map((t) => t.month);
+---
+<Base title="gruff — archive" current="index">
+  <section class="page index">
+    <div class="meta-line">
+      <span><span id="count-span">{archiveSpan(all)}</span> · <span id="count-collections">{rows.length}</span> collections · <span id="count-keepers">{keepersTotal}</span> keepers</span>
+      <span class="k" id="scrub-label">archive as of: now</span>
+    </div>
+    <div id="scrubber" data-timeline={JSON.stringify(timeline())} data-months={JSON.stringify(months)}></div>
+    <div class="chips" role="group" aria-label="filter">
+      {INDEX_FILTERS.map((f) => <button class="chip" type="button" data-filter={f.key} aria-pressed={f.key === 'all' ? 'true' : 'false'}>{f.label}</button>)}
+    </div>
+    <div class="grid">
+      <div>
+        <div class="row head f" aria-hidden="true"><span class="no">no.</span><span class="ti">title</span><span class="pl">platform</span><span class="yr">year</span><span class="wk">works</span></div>
+        <div id="ledger">
+          {rows.map(({ c, cover, preview, price }) => (
+            <a class="row" href={collectionPath(c.slug)} data-code={c.code} data-filters={filterTags(c).join(' ')} data-preview={preview ?? ''} data-title={c.title} data-year={firstYear(c)} data-meta={`${c.accession} · ${c.standard === 'erc1155' ? `${c.pieces} pieces` : `${c.works} works`}`} data-price={price ?? ''}>
+              {cover && preview ? <img class="th" src={chooseMedia(cover, 'thumb').src ?? preview} alt="" loading="lazy" /> : <span class="th" aria-hidden="true"></span>}
+              <span class="k no">{c.accession}</span>
+              <span class="lead ti"><span class="tt">{c.title}</span></span>
+              <span class="k pl">{c.platform}</span>
+              <span class="k yr">{firstYear(c)}</span>
+              <span class="m wk" data-works>{c.works}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+      <aside class="pv" aria-hidden="true">
+        <img id="pv-img" alt="" />
+        <div class="lbl">
+          <div class="k" id="pv-meta"></div>
+          <div id="pv-title"></div>
+          <div class="k" id="pv-listed-label">listed</div>
+          <div class="price" id="pv-price"></div>
+          <div class="m lower" id="pv-unlisted" hidden>not listed</div>
+        </div>
+      </aside>
+    </div>
+  </section>
+  <footer slot="footer" class="page foot">
+    {latest && <a class="hit" href={workPath(latest.slug, latest.tokenId)}><span>latest: <span class="m">{latest.tokenName} {eventLabel(latest.kind, latest.quantity)}{latest.priceWei ? ` ${formatEth(latest.priceWei)}` : ''}</span> · <span data-ago={latest.timestamp}>{formatStamp(latest.timestamp)}</span> →</span></a>}
+    <span class="k">last inventory: <span data-ago={m.lastInventory}>{formatStamp(m.lastInventory)}</span></span>
+  </footer>
+</Base>
+<style>
+  .meta-line { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); margin: 26px 0 0; flex-wrap: wrap; }
+  #scrubber { position: relative; margin: 14px 0 22px; }
+  #scrubber :global(input) { display: block; width: 100%; box-sizing: border-box; appearance: none; -webkit-appearance: none; background: none; accent-color: #fff; height: 44px; margin: 0; padding: 0; cursor: pointer; outline-offset: 2px; }
+  #scrubber :global(input:focus-visible) { outline: 1px solid var(--fg); }
+  #scrubber :global(input::-webkit-slider-runnable-track) { height: 1px; background: var(--dot); border: 0; }
+  #scrubber :global(input::-moz-range-track) { height: 1px; background: var(--dot); border: 0; }
+  #scrubber :global(input::-webkit-slider-thumb) { -webkit-appearance: none; appearance: none; width: 10px; height: 10px; background: var(--fg); margin-top: -4.5px; border: 0; border-radius: 0; }
+  #scrubber :global(input::-moz-range-thumb) { width: 10px; height: 10px; background: var(--fg); border: 0; border-radius: 0; }
+  #scrubber :global(.ticks) { position: relative; height: 14px; color: var(--faint); font-size: 9px; line-height: 14px; }
+  #scrubber :global(.ticks span) { position: absolute; top: 0; transform: translateX(-50%); }
+  #scrubber :global(.ticks span.first) { transform: none; }
+  #scrubber :global(.ticks span.last) { transform: translateX(-100%); }
+  .chips { margin: 14px 0 6px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 28vw, 420px); gap: clamp(24px, 4vw, 56px); align-items: start; }
+  .row { display: grid; grid-template-columns: 118px minmax(0, 1fr) 104px 52px 64px; grid-template-areas: 'no ti pl yr wk'; gap: 12px; align-items: baseline; padding: 5px 0; }
+  .row .th { grid-area: th; display: none; }
+  .row .no { grid-area: no; }
+  .row .ti { grid-area: ti; min-width: 0; }
+  .row .pl { grid-area: pl; }
+  .row .yr { grid-area: yr; }
+  .row .wk { grid-area: wk; text-align: right; }
+  .tt { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row.head { font-size: 10px; padding-bottom: 6px; }
+  .row[hidden] { display: none; }
+  #ledger .row:hover, #ledger .row:focus-visible { background: var(--fg); color: #000; text-decoration: none; margin: 0 -10px; padding: 5px 10px; outline: none; }
+  #ledger .row:hover .k, #ledger .row:hover .m, #ledger .row:focus-visible .k, #ledger .row:focus-visible .m { color: #000; }
+  #ledger .row:hover .lead::after, #ledger .row:focus-visible .lead::after { border-color: #000; }
+  .pv { position: sticky; top: 24px; opacity: 0; transition: opacity .8s ease; }
+  .pv.on { opacity: 1; }
+  .pv img { width: 100%; max-height: 62vh; object-fit: contain; }
+  .lbl { margin-top: 14px; font-size: 11px; line-height: 1.7; }
+  .foot { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 11px; padding-top: 0; flex-wrap: wrap; }
+  @media (max-width: 1023px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .pv { display: none; }
+    .row { grid-template-columns: 92px minmax(0, 1fr) 84px 40px 40px; min-height: 44px; align-items: center; }
+  }
+  @media (max-width: 767px) {
+    .row { grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: 'th no yr' 'th ti ti'; row-gap: 0; padding: 8px 0; border-top: 1px solid var(--line); align-items: center; }
+    .row.head { display: none; }
+    .row .th { display: block; width: 40px; height: 40px; object-fit: cover; }
+    .row .no { font-size: 9px; }
+    .row .pl, .row .wk { display: none; }
+    #ledger .row:hover, #ledger .row:focus-visible { margin: 0; padding: 8px 0; }
+  }
+</style>
+<script src="../scripts/index.ts"></script>

@@ -1,0 +1,41 @@
+---
+export type NavName = 'index' | 'activity' | 'keepers' | 'techniques' | 'experiments' | 'about';
+interface Props { current?: NavName }
+const { current } = Astro.props;
+const items: [NavName, string][] = [['index', '/'], ['activity', '/activity/'], ['keepers', '/keepers/'], ['techniques', '/techniques/'], ['experiments', '/experiments/'], ['about', '/about/']];
+---
+<header class="hd page">
+  <div class="brand">
+    <a href="/" class="wm-link" aria-label="gruff — index"><span class="wm">gruff</span></a>
+    <p class="tagline">archive emotions before they fade</p>
+  </div>
+  <nav aria-label="main">
+    <button class="menu" type="button" aria-expanded="false" aria-controls="nav-list">menu</button>
+    <ul id="nav-list">
+      {items.map(([name, href]) => (
+        <li><a href={href} aria-current={current === name ? 'page' : undefined}>{name}</a></li>
+      ))}
+    </ul>
+  </nav>
+</header>
+<style>
+  .hd { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-bottom: 0; }
+  .wm { font-family: var(--serif); text-transform: none; font-size: 72px; line-height: .78; filter: url(#ink); display: inline-block; }
+  .brand { display: flex; flex-direction: column; align-items: flex-start; }
+  .wm-link:hover { text-decoration: none; }
+  .tagline { margin: 14px 0 0; }
+  nav ul { list-style: none; margin: 0; padding: 0 0 6px; display: flex; flex-wrap: wrap; gap: 4px 0; color: var(--dim); font-size: 11px; }
+  nav li + li::before { content: '·'; margin: 0 10px; color: var(--faint); }
+  nav a[aria-current='page'] { color: var(--fg); border-bottom: 1px solid var(--fg); }
+  .menu { display: none; }
+  @media (max-width: 767px) {
+    .hd { align-items: flex-start; }
+    .wm { font-size: 44px; }
+    .menu { display: block; background: none; border: 0; color: var(--fg); font: inherit; text-transform: uppercase; border-bottom: 1px solid var(--dim); min-height: 44px; min-width: 44px; cursor: pointer; }
+    nav ul { display: none; position: absolute; right: var(--gutter); background: var(--bg); flex-direction: column; padding: 12px 0; z-index: 10; }
+    nav ul.open { display: flex; }
+    nav li + li::before { content: none; }
+    nav li a { display: block; padding: 10px 0; min-height: 44px; }
+  }
+</style>
+<script src="../scripts/nav.ts"></script>

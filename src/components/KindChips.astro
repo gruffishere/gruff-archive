@@ -1,0 +1,12 @@
+---
+interface Props { empty: string }
+const { empty } = Astro.props;
+import { KIND_FILTERS } from '../lib/activity';
+const LABELS: Record<(typeof KIND_FILTERS)[number], string> = { all: 'all', sale: 'sales', mint: 'mints', transfer: 'transfers', listed: 'listings' };
+---
+<div class="chips" role="group" aria-label="filter">{KIND_FILTERS.map((k) => <button class="chip" type="button" data-kind={k} aria-pressed={k === 'all' ? 'true' : 'false'}>{LABELS[k]}</button>)}</div>
+<p class="empty k" hidden>{empty}</p>
+<style>
+  .empty { margin: 14px 0; color: var(--faint); }
+  .empty[hidden] { display: none; }
+</style>

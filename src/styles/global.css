@@ -1,0 +1,35 @@
+:root {
+  --bg: #000; --fg: #fff; --muted: #8a8a8a; --dim: #777; --faint: #555; --line: #1e1e1e; --dot: #333;
+  --mono: 'DM Mono', ui-monospace, monospace; --serif: 'Castoro', Georgia, serif;
+  --gutter: clamp(16px, 4vw, 56px);
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); color: var(--fg); -webkit-text-size-adjust: 100%; }
+body { margin: 0; font: 400 12px/1.5 var(--mono); text-transform: uppercase; letter-spacing: .01em; min-height: 100vh; overflow-x: hidden; transition: opacity .4s ease; }
+body.fading { opacity: .06; transition: opacity 20s linear; }
+@media (prefers-reduced-motion: reduce) { body { transition: none; } body.fading { opacity: 1; transition: none; } }
+a { color: inherit; text-decoration: none; }
+a:hover, a:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+img, video, iframe { max-width: 100%; display: block; }
+.k { color: var(--dim); } .f { color: var(--faint); } .m { color: var(--muted); }
+.lower { text-transform: none; }
+.tagline { display: inline-block; font-weight: 300; text-transform: none; font-size: 13px; background: linear-gradient(90deg, #bbb 0%, #999 35%, #444 70%, #0d0d0d 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tagline::before { content: '— '; }
+.page { padding: 40px var(--gutter) 64px; max-width: 1600px; margin: 0 auto; }
+.lead { display: flex; gap: 8px; min-width: 0; }
+.lead::after { content: ''; flex: 1; border-bottom: 1px dotted var(--dot); transform: translateY(-4px); }
+.lr { display: flex; gap: 8px; padding: 4px 0; }
+.lr > .l { display: flex; flex: 1; gap: 8px; color: var(--dim); }
+.lr > .l::after { content: ''; flex: 1; border-bottom: 1px dotted var(--dot); transform: translateY(-4px); }
+.lr > .v { text-transform: none; text-align: right; }
+.price { font-size: 44px; font-weight: 500; letter-spacing: -.02em; line-height: 1; text-transform: none; margin: 6px 0 10px; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+.chip { color: var(--faint); background: none; border: 0; font: inherit; text-transform: inherit; cursor: pointer; padding: 6px 6px; min-height: 44px; }
+.chip[aria-pressed='true'] { color: #000; background: var(--fg); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+@media (max-width: 767px) { body { font-size: 11px; } .tagline { font-size: 11px; } .price { font-size: 34px; } }
+/* touch target: an inline link that is at least 44px tall without looking louder.
+   inline-flex turns each text run into its own flex item and drops its edge spaces, so use it only on links whose
+   content is a single text run or a single wrapping span. */
+.hit { display: inline-flex; align-items: center; min-height: 44px; }
+[data-ago] { text-transform: none; }

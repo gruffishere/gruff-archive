@@ -1,0 +1,14 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="this room is closed — gruff">
+  <section class="page closed">
+    <p class="k">404</p>
+    <p class="lower big">this room is closed</p>
+    <p><a class="hit" href="/">← back to the index</a></p>
+  </section>
+</Base>
+<style>
+  .closed { min-height: 50vh; display: flex; flex-direction: column; justify-content: center; }
+  .big { font-size: 28px; margin: 8px 0 24px; }
+</style>

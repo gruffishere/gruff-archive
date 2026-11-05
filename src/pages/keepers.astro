@@ -1,0 +1,89 @@
+---
+import Base from '../layouts/Base.astro';
+import { keepers, meta, tokenIndex } from '../lib/data';
+import { KEEPERS_SHOWN, maskCells, stripHtml } from '../lib/keepers';
+import { displayName, formatDate, formatEth, formatMonth, heldFor } from '../lib/format';
+import { workPath } from '../lib/links';
+const list = keepers();
+const order = meta().indexOrder;
+const idx = tokenIndex();
+const now = new Date(meta().lastInventory);
+const work = (slug: string, id: string) => idx.get(`${slug}/${id}`);
+// An unpriced sale from the artist has no amount worth showing.
+const paid = (wei: string | null | undefined) => (wei && wei !== '0' ? formatEth(wei) : null);
+---
+<Base title="keepers — gruff" current="keepers">
+  <section class="page">
+    <p class="lower intro">{list.length.toLocaleString('en-US')} keepers hold the archive.</p>
+    <div class="chips" role="group" aria-label="sort">sort:
+      {(['pieces', 'works', 'collections', 'since'] as const).map((s) => <button class="chip" type="button" data-sort={s} aria-pressed={s === 'pieces' ? 'true' : 'false'}>{s}</button>)}
+    </div>
+    <label class="find k">find a keeper <input id="find" type="search" placeholder="ens or address" autocomplete="off" /></label>
+    <div class="row head f" aria-hidden="true"><span>#</span><span>keeper</span><span class="n">pieces</span><span class="n">works</span><span class="strip-h">collections ({order[0]} → {order.at(-1)})</span><span>since</span></div>
+    <ol id="keepers">
+      {list.map((k, i) => (
+        <li class="keeper" data-name={`${k.ens ?? ''} ${k.address}`} data-pieces={k.pieces} data-works={k.works} data-collections={maskCells(k.mask).filter(Boolean).length} data-since={k.firstAcquired ?? '9999'} hidden={i >= KEEPERS_SHOWN}>
+          <details>
+            <summary class="row">
+              <span class="k rank">{String(i + 1).padStart(2, '0')}</span>
+              <span class="lower name">{displayName(k.address, k.ens)}</span>
+              <span class="n">{k.pieces}</span>
+              <span class="n">{k.works}</span>
+              <span class="strip" role="img" aria-label={`${maskCells(k.mask).filter(Boolean).length} collections`}><Fragment set:html={stripHtml(k.mask)} /></span>
+              <span class="k">{k.firstAcquired ? formatMonth(k.firstAcquired) : '—'}</span>
+            </summary>
+            <div class="det">
+              <div>
+                {k.firstFromArtist && <div class="lr"><span class="l">first from <span class="lower">gruff</span></span><span class="v">{formatDate(k.firstFromArtist.at)} · {work(k.firstFromArtist.slug, k.firstFromArtist.tokenId)?.name ?? `#${k.firstFromArtist.tokenId}`}{paid(k.firstFromArtist.priceWei) ? ` · ${paid(k.firstFromArtist.priceWei)}` : ''}</span></div>}
+                {k.lastAcquired && <div class="lr"><span class="l">latest</span><span class="v">{formatDate(k.lastAcquired)}</span></div>}
+                {k.fromArtist.pieces > 0 && <div class="lr"><span class="l">from <span class="lower">gruff</span> directly</span><span class="v">{k.fromArtist.pieces} {k.fromArtist.pieces === 1 ? 'piece' : 'pieces'}{paid(k.fromArtist.paidWei) ? ` · ${paid(k.fromArtist.paidWei)}` : ''}</span></div>}
+                {k.longestHeld && <div class="lr"><span class="l">longest held</span><span class="v">{work(k.longestHeld.slug, k.longestHeld.tokenId)?.name ?? `#${k.longestHeld.tokenId}`} · {heldFor(k.longestHeld.since, now)}</span></div>}
+              </div>
+              <div class="holds">
+                {k.holdings.slice(0, 40).map((h) => {
+                  const w = work(h.slug, h.tokenId);
+                  return <a href={workPath(h.slug, h.tokenId)} title={w?.name ?? w?.accession} aria-label={w?.name ?? w?.accession}>{w?.thumb ? <img src={w.thumb} alt={w.name} loading="lazy" /> : <i />}</a>;
+                })}
+                {k.holdings.length > 40 && <span class="k">+{k.holdings.length - 40}</span>}
+              </div>
+            </div>
+          </details>
+        </li>
+      ))}
+    </ol>
+    <p class="k cap" id="cap-note" hidden><span class="count"></span> — <button class="link" type="button">show all</button></p>
+    {list.length > KEEPERS_SHOWN && <button class="chip more" type="button" id="show-all">show all {list.length}</button>}
+  </section>
+</Base>
+<style>
+  .intro { margin: 26px 0 12px; color: var(--dim); }
+  .find { display: flex; gap: 10px; align-items: center; margin: 10px 0 18px; }
+  .find input { background: none; border: 0; border-bottom: 1px solid var(--dot); color: var(--fg); font: inherit; text-transform: none; padding: 8px 0; min-height: 44px; width: min(320px, 60vw); border-radius: 0; }
+  li.keeper { content-visibility: auto; contain-intrinsic-size: auto 44px; }
+  .cap { margin: 14px 0; }
+  .cap[hidden] { display: none; }
+  .cap .link { background: none; border: 0; font: inherit; text-transform: inherit; color: var(--fg); text-decoration: underline; cursor: pointer; min-height: 44px; padding: 0 6px; }
+  ol { list-style: none; margin: 0; padding: 0; }
+  .row { display: grid; grid-template-columns: 34px minmax(0, 1.2fr) 64px 56px 170px 80px; gap: 12px; align-items: center; padding: 9px 0; border-top: 1px solid #121212; cursor: pointer; list-style: none; min-height: 44px; }
+  .row::-webkit-details-marker { display: none; }
+  .row.head { cursor: default; border: 0; font-size: 10px; min-height: 0; }
+  .n { text-align: right; }
+  .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .strip { display: flex; gap: 2px; }
+  .strip :global(i) { width: 8px; height: 12px; background: #222; display: block; }
+  .strip :global(i.on) { background: var(--fg); }
+  details[open] { background: #0b0b0b; }
+  .det { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; padding: 6px 12px 18px; }
+  .lr .v { min-width: 0; overflow-wrap: anywhere; }
+  .holds { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .holds a { display: block; }
+  .holds img, .holds i { width: 44px; height: 44px; object-fit: cover; display: block; background: #111; }
+  .more { margin-top: 18px; }
+  @media (max-width: 767px) {
+    .row { grid-template-columns: 28px minmax(0, 1fr) 44px; }
+    .row > :nth-child(4), .row > :nth-child(6), .row.head > .strip-h { display: none; }
+    .strip { grid-column: 2 / -1; }
+    .det { grid-template-columns: 1fr; padding: 6px 0 18px; }
+  }
+</style>
+<script src="../scripts/keepers.ts"></script>

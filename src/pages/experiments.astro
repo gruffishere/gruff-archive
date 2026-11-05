@@ -1,0 +1,33 @@
+---
+import Base from '../layouts/Base.astro';
+import { collections, tokensOf } from '../lib/data';
+import { experimentCollections, firstYear } from '../lib/collections';
+import { chooseMedia } from '../lib/media';
+import { collectionPath } from '../lib/links';
+const rooms = experimentCollections(collections()).map((c) => ({ c, cover: tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0] }));
+---
+<Base title="experiments — gruff" current="experiments">
+  <section class="page">
+    <p class="k intro">experiments · rooms where things are still moving</p>
+    <div class="rooms">
+      {rooms.map(({ c, cover }) => {
+        const m = cover ? chooseMedia(cover, 'thumb') : null;
+        return (
+          <a class="room" href={collectionPath(c.slug)}>
+            {m?.src ? <img src={m.src} alt={c.title} loading="lazy" class:list={{ px: m.pixelated }} /> : <div class="empty" />}
+            <span class="k">{c.accession}</span>
+            <span class="lead">{c.title}</span>
+            <span class="k">{firstYear(c)} · {c.works} works</span>
+          </a>
+        );
+      })}
+    </div>
+  </section>
+</Base>
+<style>
+  .intro { margin: 26px 0 22px; }
+  .rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 28px; }
+  .room { display: flex; flex-direction: column; gap: 4px; min-height: 44px; }
+  .room img, .room .empty { aspect-ratio: 1 / 1; object-fit: cover; width: 100%; background: #0b0b0b; margin-bottom: 8px; }
+  .px { image-rendering: pixelated; }
+</style>

@@ -1,0 +1,61 @@
+---
+import Base from '../../layouts/Base.astro';
+import MediaView from '../../components/MediaView.astro';
+import { collections, tokensOf, type CollectionOut } from '../../lib/data';
+import { firstYear, inCirculation, layoutOf } from '../../lib/collections';
+import { displayName, formatEth } from '../../lib/format';
+import { workPath } from '../../lib/links';
+import { chooseMedia } from '../../lib/media';
+
+export function getStaticPaths() {
+  return collections().map((c) => ({ params: { slug: c.slug }, props: { c } }));
+}
+const { c } = Astro.props as { c: CollectionOut };
+const tokens = tokensOf(c.slug).filter(inCirculation);
+const layout = layoutOf(c);
+const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYear(c)}–${c.lastMint.slice(0, 4)}` : firstYear(c);
+---
+<Base title={`${c.title} — gruff`} description={c.wallText ?? `${c.title} by gruff, ${span}.`} current={c.section === 'experiments' ? 'experiments' : 'index'}>
+  <section class="page">
+    <p class="k crumbs"><a class="back" href={c.section === 'experiments' ? '/experiments/' : '/'}>← {c.section === 'experiments' ? 'experiments' : 'index'}</a> · {c.accession}</p>
+    <h1 class="title">{c.title}</h1>
+    <p class="k"><span class="lower">gruff</span>, {span} · {c.platform} · {c.standard}</p>
+    {c.wallText && <p class="lower wall">{c.wallText}</p>}
+    <div class="stats">
+      <div class="lr"><span class="l">works</span><span class="v">{c.works}</span></div>
+      {c.standard === 'erc1155' && <div class="lr"><span class="l">pieces</span><span class="v">{c.pieces}</span></div>}
+      <div class="lr"><span class="l">keepers</span><span class="v">{c.holders}</span></div>
+      {c.floorWei && <div class="lr"><span class="l">floor</span><span class="v">{formatEth(c.floorWei)}</span></div>}
+    </div>
+    <div class:list={['works', layout]}>
+      {tokens.map((t, i) => (
+        <a class="work" href={workPath(c.slug, t.id)}>
+          <MediaView token={t} size={layout === 'column' ? 'large' : 'thumb'} alt={t.name} eager={i < 4} />
+          {layout === 'column' ? (
+            <div class="cap">
+              <span class="k">{t.accession}</span>
+              <span class="lower">{t.name}</span>
+              <span class="k lower">{t.listing ? `listed ${formatEth(t.listing.priceWei)}` : 'not listed'}{t.owners[0] ? ` · ${displayName(t.owners[0].address, t.owners[0].ens)}` : ''}</span>
+            </div>
+          ) : chooseMedia(t, 'thumb').kind !== 'none' && (
+            <span class="k cap-s">{t.accession.split('.').at(-1)}</span>
+          )}
+        </a>
+      ))}
+    </div>
+  </section>
+</Base>
+<style>
+  .crumbs { margin: 26px 0 8px; }
+  .back { display: inline-flex; align-items: center; min-height: 44px; }
+  .title { font: 500 20px/1.2 var(--mono); margin: 0 0 4px; }
+  .wall { max-width: 640px; color: #aaa; line-height: 1.7; margin: 16px 0; }
+  .stats { max-width: 420px; margin: 18px 0 34px; }
+  .works.column { display: grid; gap: 64px; max-width: 900px; }
+  .works.column .cap { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+  .works.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  .works.grid .cap-s { display: block; font-size: 9px; margin-top: 4px; }
+  .works :global(iframe) { pointer-events: none; }
+  .work:hover { text-decoration: none; }
+  @media (max-width: 767px) { .works.grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; } }
+</style>

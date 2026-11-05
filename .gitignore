@@ -10,3 +10,8 @@ data/catalog.tmp/
 .dev.vars
 !.env.example
 *.tmp
+
+dist/
+.astro/
+test-results/
+playwright-report/

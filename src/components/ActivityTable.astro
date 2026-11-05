@@ -1,0 +1,54 @@
+---
+import type { DisplayRow } from '../lib/activity';
+import { formatDate, formatEth, formatTime } from '../lib/format';
+import { workPath } from '../lib/links';
+interface Props { rows: DisplayRow[]; showWork?: boolean; groupDays?: boolean }
+const { rows, showWork = false, groupDays = false } = Astro.props;
+const groups: { day: string; rows: DisplayRow[] }[] = [];
+for (const r of rows) {
+  const day = formatDate(r.timestamp);
+  if (!groupDays || groups.at(-1)?.day !== day) groups.push({ day, rows: [] });
+  groups.at(-1)!.rows.push(r);
+}
+const n = (v: string | null) => v ?? '—';
+const who = (r: DisplayRow) => (r.kind === 'mint' ? `→ ${n(r.toName)}` : r.kind === 'listed' ? `by ${n(r.fromName)}` : r.kind === 'burn' ? `${n(r.fromName)} → burned` : `${n(r.fromName)} → ${n(r.toName)}`);
+---
+<div class:list={['act', { work: showWork }]}>
+  {groups.map((g) => (
+    <>
+      {groupDays && <div class="day lead k">{g.day}</div>}
+      {g.rows.map((r) => (
+        <div class="ev" data-kind={r.kind}>
+          <span class="k">{groupDays ? formatTime(r.timestamp) : formatDate(r.timestamp)}</span>
+          <span>{r.label}</span>
+          {showWork && (
+            <a class="w" href={workPath(r.slug, r.tokenId)}>
+              {r.thumb ? <img src={r.thumb} alt="" loading="lazy" /> : <i />}
+              <span class="lower">{r.tokenName}{r.ids.length > 1 ? ` #${r.ids.at(-1)}–${r.ids[0]}` : ''}<small class="f">{r.accession}</small></span>
+            </a>
+          )}
+          <span class="k lower who">{who(r)}</span>
+          <span class="p">{r.priceWei ? formatEth(r.priceWei) : <span class="f">—</span>}</span>
+        </div>
+      ))}
+    </>
+  ))}
+</div>
+<style>
+  .ev { display: grid; grid-template-columns: 96px 96px minmax(0, 1fr) 90px; gap: 12px; padding: 7px 0; border-top: 1px solid #121212; align-items: center; }
+  .work .ev { grid-template-columns: 56px 90px minmax(0, 1.2fr) minmax(0, 1fr) 80px; }
+  .p { text-align: right; text-transform: none; }
+  .w { display: flex; gap: 10px; align-items: center; min-width: 0; }
+  .w img, .w i { width: 30px; height: 30px; object-fit: cover; flex: none; background: #111; }
+  .w small { display: block; font-size: 9px; }
+  .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .day { margin: 16px 0 4px; }
+  .ev[hidden], .day[hidden] { display: none; }
+  @media (max-width: 767px) {
+    .w { min-height: 44px; }
+    .ev, .work .ev { grid-template-columns: 52px minmax(0, 1fr) auto; }
+    .ev > :nth-child(2) { grid-column: 2; }
+    .work .ev .w { grid-column: 1 / -1; grid-row: 2; }
+    .who { grid-column: 2 / 3; }
+  }
+</style>

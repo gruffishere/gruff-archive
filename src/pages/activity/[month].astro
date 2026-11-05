@@ -1,0 +1,32 @@
+---
+import Base from '../../layouts/Base.astro';
+import ActivityTable from '../../components/ActivityTable.astro';
+import { activityMonth, activityMonths } from '../../lib/data';
+import KindChips from '../../components/KindChips.astro';
+import { collapseMints } from '../../lib/activity';
+import { monthLabel } from '../../lib/timeline';
+export function getStaticPaths() {
+  return activityMonths().map((month) => ({ params: { month } }));
+}
+const { month } = Astro.params as { month: string };
+const rows = collapseMints(activityMonth(month));
+const all = activityMonths();
+const i = all.indexOf(month);
+---
+<Base title={`activity ${monthLabel(month)} — gruff`} current="activity">
+  <section class="page">
+    <p class="k crumbs"><a href="/activity/">← activity</a> · {monthLabel(month)} · {rows.length} entries</p>
+    <KindChips empty={`nothing of this kind in ${monthLabel(month)}.`} />
+    <ActivityTable rows={rows} showWork groupDays />
+    <nav class="pn k">
+      {all[i + 1] ? <a href={`/activity/${all[i + 1]}/`}>← {monthLabel(all[i + 1])}</a> : <span />}
+      {all[i - 1] ? <a href={`/activity/${all[i - 1]}/`}>{monthLabel(all[i - 1])} →</a> : <span />}
+    </nav>
+  </section>
+</Base>
+<style>
+  .crumbs { margin: 26px 0 12px; }
+  .pn { display: flex; justify-content: space-between; margin-top: 20px; }
+  .pn a { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 4px; }
+</style>
+<script src="../../scripts/activity.ts"></script>

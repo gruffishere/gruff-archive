@@ -1,0 +1,57 @@
+---
+import Base from '../../../layouts/Base.astro';
+import MediaView from '../../../components/MediaView.astro';
+import WallLabel from '../../../components/WallLabel.astro';
+import ActivityTable from '../../../components/ActivityTable.astro';
+import { collections, meta, tokensOf, type CollectionOut, type TokenOut } from '../../../lib/data';
+import { toDisplayRows } from '../../../lib/activity';
+import { collectionPath, etherscanToken, openseaItem, workPath } from '../../../lib/links';
+import { labelFilename, labelImage, labelLines, safeJson } from '../../../lib/label';
+import { workNav } from '../../../lib/collections';
+
+export function getStaticPaths() {
+  return collections().flatMap((c) => {
+    const tokens = tokensOf(c.slug);
+    const nav = workNav(tokens);
+    return tokens.map((t, i) => ({ params: { slug: c.slug, id: t.id }, props: { c, t, ...nav[i] } }));
+  });
+}
+const { c, t, prev, next, n, total } = Astro.props as { c: CollectionOut; t: TokenOut; prev: string | null; next: string | null; n: number | null; total: number };
+const m = meta();
+const labelData = safeJson({ lines: labelLines(t, c), image: labelImage(t), filename: labelFilename(t) });
+const recent = toDisplayRows(t.recent.map((e) => ({ ...e, slug: c.slug, code: c.code, tokenName: t.name, accession: t.accession, thumb: t.image?.thumb ?? null, fromEns: null, toEns: null })));
+const ens = new Map(t.owners.filter((o) => o.ens).map((o) => [o.address, o.ens as string]));
+for (const r of recent) {
+  if (r.from && ens.has(r.from)) r.fromName = ens.get(r.from)!;
+  if (r.to && ens.has(r.to)) r.toName = ens.get(r.to)!;
+}
+---
+<Base title={`${t.name} — ${c.title} — gruff`} description={t.description ?? `${t.name}, ${c.title} by gruff.`} current={c.section === 'experiments' ? 'experiments' : 'index'}>
+  <section class="page">
+    <p class="k crumbs"><a class="hit" href={collectionPath(c.slug)}>← {c.title}</a>{n !== null && <> · {String(n).padStart(2, '0')} / {total}</>}</p>
+    <div class="body">
+      <div class="art"><MediaView token={t} size="large" alt={t.name} eager /></div>
+      <aside><WallLabel c={c} t={t} ethUsd={m.ethUsd} asOf={m.lastInventory} /></aside>
+    </div>
+    <nav class="pn" aria-label="works">
+      {prev ? <a rel="prev" href={workPath(c.slug, prev)}>← previous</a> : <span />}
+      {next ? <a rel="next" href={workPath(c.slug, next)}>next →</a> : <span />}
+    </nav>
+    <h2 class="k act-h">activity</h2>
+    {recent.length ? <ActivityTable rows={recent} /> : <p class="f">no activity recorded yet</p>}
+    <p class="k full">full history: <a class="hit" href={etherscanToken(c.contract, t.id)} rel="noopener" target="_blank">etherscan ↗</a> · <a class="hit" href={openseaItem(c.contract, t.id)} rel="noopener" target="_blank">opensea ↗</a></p>
+    <script type="application/json" id="label-data" set:html={labelData}></script>
+  </section>
+</Base>
+<style>
+  .crumbs { margin: 16px 0 8px; }
+  .body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr); gap: 40px; align-items: start; }
+  .art { min-width: 0; }
+  aside { position: sticky; top: 24px; min-width: 0; }
+  .pn { display: flex; justify-content: space-between; color: var(--dim); margin: 24px 0; font-size: 11px; }
+  .pn a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .act-h { font: 400 11px var(--mono); letter-spacing: .04em; margin: 36px 0 8px; }
+  .full { margin-top: 12px; }
+  @media (max-width: 1023px) { .body { grid-template-columns: 1fr; } aside { position: static; } }
+</style>
+<script src="../../../scripts/work.ts"></script>

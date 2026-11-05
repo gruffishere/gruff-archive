@@ -1,0 +1,4 @@
+[
+  {"address":"0x00000000000000000000000000000000000000b2","ens":"keeper.eth","pieces":3,"works":2,"collections":["SLV","FCT"],"mask":"11","firstAcquired":"2023-04-01T00:00:00.000Z","lastAcquired":"2026-10-01T00:00:00.000Z","fromArtist":{"pieces":2,"paidWei":"350000000000000000"},"firstFromArtist":{"slug":"silver-surfer","tokenId":"1","at":"2025-01-01T00:00:00.000Z","priceWei":"320000000000000000"},"longestHeld":{"slug":"silver-surfer","tokenId":"1","since":"2025-01-01T00:00:00.000Z"},"holdings":[{"slug":"silver-surfer","tokenId":"1","quantity":1}]},
+  {"address":"0x00000000000000000000000000000000000000c3","ens":null,"pieces":1,"works":1,"collections":["FCT"],"mask":"01","firstAcquired":"2026-09-20T00:00:00.000Z","lastAcquired":"2026-09-20T00:00:00.000Z","fromArtist":{"pieces":0,"paidWei":"0"},"firstFromArtist":null,"longestHeld":null,"holdings":[]}
+]

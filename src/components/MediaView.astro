@@ -1,0 +1,20 @@
+---
+import type { TokenOut } from '../lib/data';
+import { chooseMedia } from '../lib/media';
+interface Props { token: TokenOut; size: 'thumb' | 'large'; alt: string; eager?: boolean }
+const { token, size, alt, eager = false } = Astro.props;
+const m = chooseMedia(token, size);
+---
+{m.kind === 'img' && <img class:list={['mv', size, { px: m.pixelated }]} src={m.src} alt={alt} loading={eager ? 'eager' : 'lazy'} decoding="async" />}
+{m.kind === 'iframe' && <iframe class:list={['mv', size]} src={m.src} title={alt} sandbox="allow-scripts" loading={eager ? 'eager' : 'lazy'} />}
+{m.kind === 'video' && <video class:list={['mv', size]} src={m.src} autoplay muted loop playsinline preload="metadata" aria-label={alt} />}
+{m.kind === 'none' && <div class:list={['mv', size, 'empty']} role="img" aria-label={alt}><span class="f">{token.accession}</span></div>}
+<style>
+  .mv { width: 100%; background: #050505; }
+  .mv.large { aspect-ratio: auto; height: auto; max-height: 82vh; object-fit: contain; }
+  iframe.mv.large { aspect-ratio: 1 / 1; height: auto; max-height: 82vh; }
+  iframe.mv, .mv.empty { aspect-ratio: 1 / 1; border: 0; height: auto; }
+  .mv.thumb { aspect-ratio: 1 / 1; object-fit: cover; }
+  .px { image-rendering: pixelated; }
+  .empty { display: flex; align-items: center; justify-content: center; font-size: 10px; }
+</style>
