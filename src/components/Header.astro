@@ -32,7 +32,8 @@ const items: [NavName, string][] = [['index', '/'], ['catalog', '/catalog/'], ['
     .hd { align-items: flex-start; }
     .wm { font-size: 44px; }
     .menu { display: block; background: none; border: 0; color: var(--fg); font: inherit; text-transform: uppercase; border-bottom: 1px solid var(--dim); min-height: 44px; min-width: 44px; cursor: pointer; }
-    nav ul { display: none; position: absolute; right: var(--gutter); background: var(--bg); flex-direction: column; padding: 12px 0; z-index: 10; }
+    /* in the flow, not a dropdown: an open menu pushes the page down instead of covering what is under it (the catalog wall) */
+    nav ul { display: none; flex-direction: column; padding: 12px 0; }
     nav ul.open { display: flex; }
     nav li + li::before { content: none; }
     nav li a { display: block; padding: 10px 0; min-height: 44px; }
