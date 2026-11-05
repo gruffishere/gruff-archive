@@ -30,7 +30,7 @@ const commentary = room.commentary ? parseCommentary(readFileSync(`src/content/$
     {commentary.length > 0 && (
       <article class="commentary" aria-label="artwork commentary">
         <p class="k head">artwork commentary</p>
-        {commentary.map((b) => b.type === 'label' ? <p class="k label">{b.text}</p> : b.type === 'list' ? <ul>{b.items.map((i) => <li>{i}</li>)}</ul> : b.type === 'sign' ? <p class="sign">— <span class="lower">{b.text}</span></p> : <p>{b.text}</p>)}
+        {commentary.map((b) => b.type === 'label' ? <p class="k label">{b.text}</p> : b.type === 'list' ? <ul>{b.items.map((i) => <li>{i}</li>)}</ul> : b.type === 'sign' ? <p class="sign">- <span class="lower">{b.text}</span></p> : <p>{b.text}</p>)}
       </article>
     )}
     {room.kind === 'app' && (
