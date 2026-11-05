@@ -66,7 +66,7 @@ describe('room date labels', () => {
     expect(l('dive-bar')).toBe('30.10.2026');
     expect(l('the-sigils')).toBe('23.04.2026');
     expect(l('i-love-pure-chaos')).toBe('18.05.2026');
-    expect(l('playing-cards')).toBe('10.2026');
+    expect(l('playing-cards')).toBe('11.10.2026');
   });
   it('has no trailer room: the trailer lives inside Pulverulents', () => {
     expect(ROOMS.find((r) => r.slug.includes('trailer'))).toBeUndefined();

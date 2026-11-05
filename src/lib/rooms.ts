@@ -78,8 +78,7 @@ export const ROOMS: Room[] = [
   defineRoom({
     slug: 'playing-cards',
     title: 'Playing Cards',
-    year: 2026,
-    since: '2026-10',
+    date: '2026-10-11',
     status: 'work in progress',
     text: 'Playing cards in string art: nails around the pips, thread woven inside them, bands strung between. Every card moves in one slow dance.',
     links: [],

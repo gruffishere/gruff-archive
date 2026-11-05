@@ -105,21 +105,21 @@ test('an erc-721 collection of several works numbers its editions 1/1/<works>', 
   }
 });
 
-// FACETS moving to the experiments section and the collection links reach the catalog only through the indexer, so these
-// wait for the inventory run (the committed catalog predates config/collections.yaml) and then hold for good.
-test('facets is an experiment with its links', async ({ page }) => {
+// FACETS is an index collection again (the artist's call, 2026-11-06) and keeps its links. Section and links reach the
+// catalog only through the indexer, so this waits for an inventory run when the committed catalog predates the config.
+test('facets is an index collection with its links', async ({ page }) => {
   const c = collections().find((x) => x.slug === 'facets')!;
   // skips only while the committed catalog is stale relative to the config; once they agree it runs and must pass
   const cfg = loadConfig().collections.find((x) => x.slug === 'facets')!;
-  const stale = (cfg.section === 'experiments' && c.section !== 'experiments') || (!!cfg.links?.length && !c.links?.length);
+  const stale = cfg.section !== c.section || (!!cfg.links?.length && !c.links?.length);
   test.skip(stale, 'pending the inventory run: the committed catalog predates config/collections.yaml');
   expect(c.section).toBe(cfg.section);
   expect(c.links).toEqual(cfg.links ?? []);
   await checkPage(page, '/');
-  await expect(page.locator('#ledger a.row[data-code="FCT"]')).toHaveAttribute('data-exp', 'true');
-  await expect(page.locator('#ledger a.row[data-code="FCT"] .exp')).toHaveText('exp.');
+  await expect(page.locator('#ledger a.row[data-code="FCT"]')).not.toHaveAttribute('data-exp', 'true');
+  await expect(page.locator('#ledger a.row[data-code="FCT"] .exp')).toHaveCount(0);
   await checkPage(page, '/experiments/');
-  await expect(page.locator('.room', { hasText: 'FACETS' })).toHaveCount(1);
+  await expect(page.locator('.room', { hasText: 'FACETS' })).toHaveCount(0);
   await checkPage(page, '/c/facets/');
   const links = page.locator('.clinks a');
   await expect(links).toHaveText(['site ↗', 'x ↗', 'thread ↗']);

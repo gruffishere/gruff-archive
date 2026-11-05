@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { collections } from '../../src/lib/data';
 import { ROOMS, roomDateLabel, roomPath } from '../../src/lib/rooms';
 import { checkPage } from './helpers';
 
@@ -12,7 +13,7 @@ test('index rows show each room date in the no column', async ({ page }) => {
 
 test('experiments cards show the date on the first line and the medium on the meta line', async ({ page }) => {
   await checkPage(page, '/experiments/');
-  await expect(page.locator('.room')).toHaveCount(6);
+  await expect(page.locator('.room')).toHaveCount(collections().filter((c) => c.section === 'experiments').length + ROOMS.length);
   const sigils = page.locator(`.room[href="${roomPath('the-sigils')}"]`);
   await expect(sigils.locator('.k').first()).toHaveText('23.04.2026');
   await expect(sigils.locator('.k').last()).toHaveText('web/6529 · live');
