@@ -1,0 +1,45 @@
+---
+// "leave gruff a note": a quiet card that slides in a few seconds after load. The script decides whether it shows at all.
+---
+<aside id="note" class="note" role="dialog" aria-label="leave gruff a note" hidden>
+  <form id="note-form" novalidate>
+    <div class="top">
+      <p class="lower title">leave gruff a note</p>
+      <button class="x hit" type="button" id="note-close" aria-label="close">×</button>
+    </div>
+    <textarea id="note-text" name="text" rows="3" maxlength="500" placeholder="a word, a thought, a hello" aria-label="your note"></textarea>
+    <p class="f count" id="note-count" aria-live="polite"></p>
+    <input id="note-name" name="name" type="text" maxlength="40" placeholder="name or @handle" aria-label="name or @handle" autocomplete="off" />
+    <input class="hp" id="note-hp" name="hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
+    <div class="bar">
+      <p class="f err" id="note-err" role="status"></p>
+      <button class="send hit" type="submit" id="note-send">send</button>
+    </div>
+  </form>
+  <p class="lower thanks" id="note-thanks" role="status" hidden>thank you. gruff will read it.</p>
+</aside>
+<script src="../scripts/note.ts"></script>
+<style>
+  .note { position: fixed; right: 16px; bottom: 16px; width: min(320px, calc(100vw - 32px)); box-sizing: border-box; background: #000; border: 1px solid var(--line); padding: 8px 12px 10px; z-index: 40; opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
+  .note[hidden] { display: none; }
+  .note.in { opacity: 1; transform: none; }
+  .note.still { transition: none; transform: none; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .title { margin: 0; color: var(--muted); }
+  .x { justify-content: center; min-width: 44px; background: none; border: 0; color: var(--dim); font: inherit; font-size: 18px; cursor: pointer; margin-right: -12px; }
+  .x:hover, .send:hover { color: var(--fg); }
+  textarea, input[type='text'] { display: block; width: 100%; box-sizing: border-box; background: #000; color: var(--fg); border: 0; border-bottom: 1px dotted var(--dot); font: inherit; text-transform: none; padding: 6px 0; border-radius: 0; resize: none; }
+  textarea::placeholder, input::placeholder { color: var(--faint); text-transform: uppercase; }
+  textarea:focus, input:focus { outline: 0; border-bottom-color: var(--dim); }
+  #note-name { margin-top: 6px; }
+  .count { margin: 2px 0 0; min-height: 1.5em; text-align: right; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .err { margin: 0; }
+  .send { background: none; border: 0; color: var(--fg); font: inherit; text-transform: inherit; cursor: pointer; padding: 0 4px; margin-left: auto; }
+  .send:disabled { color: var(--faint); cursor: default; }
+  .thanks { margin: 0; padding: 14px 0; color: var(--muted); }
+  @media (max-width: 600px) {
+    .note { left: 0; right: 0; bottom: 0; width: auto; border-width: 1px 0 0; padding: 8px var(--gutter) 12px; transform: translateY(100%); }
+  }
+</style>

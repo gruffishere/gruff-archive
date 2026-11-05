@@ -1,0 +1,31 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="notes — gruff">
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <section class="page">
+    <p class="lower intro" id="status">notes left for gruff.</p>
+    <form id="gate" class="gate" hidden>
+      <label class="find k">key <input id="key" type="password" autocomplete="off" /></label>
+      <button class="hit open" type="submit">open</button>
+    </form>
+    <p class="f" id="err" role="status"></p>
+    <ol id="ledger" class="ledger"></ol>
+    <p><button class="hit forget" id="forget" type="button" hidden>forget key</button></p>
+  </section>
+</Base>
+<script src="../scripts/notes-page.ts"></script>
+<style>
+  .intro { margin: 0 0 16px; }
+  .gate { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .find { display: flex; gap: 8px; align-items: center; }
+  input { background: #000; color: var(--fg); border: 0; border-bottom: 1px dotted var(--dot); font: inherit; padding: 6px 0; min-width: 0; width: min(260px, 60vw); border-radius: 0; }
+  input:focus { outline: 0; border-bottom-color: var(--dim); }
+  .open, .forget { background: none; border: 0; color: var(--fg); font: inherit; text-transform: inherit; cursor: pointer; }
+  .forget { color: var(--faint); }
+  .ledger { list-style: none; margin: 16px 0 0; padding: 0; }
+  :global(.ledger li) { border-top: 1px solid var(--line); padding: 12px 0; display: grid; grid-template-columns: 150px 1fr; gap: 4px 16px; }
+  :global(.ledger .meta) { color: var(--dim); overflow-wrap: anywhere; }
+  :global(.ledger .body) { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; text-transform: none; }
+  @media (max-width: 600px) { :global(.ledger li) { grid-template-columns: 1fr; } }
+</style>
