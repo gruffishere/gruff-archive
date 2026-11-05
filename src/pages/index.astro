@@ -51,7 +51,7 @@ const months = timeline().map((t) => t.month);
             <a class="row" href={collectionPath(c.slug)} data-code={c.code} data-exp={c.section === 'experiments' ? 'true' : undefined} data-filters={filterTags(c).join(' ')} data-preview={preview ?? ''} data-title={c.title} data-year={firstYear(c)} data-meta={`${c.accession} · ${c.standard === 'erc1155' ? `${c.pieces} pieces` : `${c.works} works`}`} data-price={price ?? ''}>
               {cover && preview ? <img class="th" src={chooseMedia(cover, 'thumb').src ?? preview} alt="" loading="lazy" /> : <span class="th" aria-hidden="true"></span>}
               <span class="k no">{c.accession}</span>
-              <span class="lead ti">{c.section === 'experiments' && <span class="exp">exp.</span>}<span class="tt">{c.title}</span></span>
+              <span class="lead ti">{c.section === 'experiments' && <span class="exp">exp.</span>}<span class="tt">{c.title}</span>{c.minting && <span class="mint lower">still minting</span>}</span>
               <span class="k pl">{c.platform}</span>
               <span class="k yr">{firstYear(c)}</span>
               <span class="m wk" data-works>{c.works}</span>
@@ -99,6 +99,7 @@ const months = timeline().map((t) => t.month);
   .row .yr { grid-area: yr; }
   .row .wk { grid-area: wk; text-align: right; }
   .tt { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .mint { flex: none; align-self: baseline; color: var(--faint); font-size: 9px; margin-left: 8px; text-transform: none; }
   .exp { flex: none; align-self: baseline; color: var(--faint); font-size: 9px; text-transform: lowercase; }
   .row.head { font-size: 10px; padding-bottom: 6px; }
   .row[hidden] { display: none; }

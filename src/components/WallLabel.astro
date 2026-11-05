@@ -2,7 +2,7 @@
 import type { CollectionOut, TokenOut } from '../lib/data';
 import { displayName, formatDate, formatEth, formatUsd, mintValue, shortAddress } from '../lib/format';
 import { etherscanToken, openseaItem, platformLinkUnlessListed } from '../lib/links';
-import { editionText } from '../lib/label';
+import { editionText, mintingText } from '../lib/label';
 interface Props { c: CollectionOut; t: TokenOut; ethUsd: number | null; asOf: string }
 const { c, t, ethUsd, asOf } = Astro.props;
 const year = (t.mint?.at ?? c.firstMint ?? '').slice(0, 4);
@@ -35,7 +35,7 @@ const snapshot = t.listing?.priceWei ?? '';
   ) : (
     t.owners[0] && <div class="lr"><span class="l">owner</span><span class="v">{displayName(t.owners[0].address, t.owners[0].ens)}{t.owners[0].escrow ? ' (on foundation)' : ''}</span></div>
   )}
-  <div class="lr"><span class="l">edition</span><span class="v">{edition}</span></div>
+  <div class="lr"><span class="l">edition</span><span class="v">{edition}{mintingText(c) && <> · <span class="lower mnote">still minting</span></>}</span></div>
   <div class="lr"><span class="l">contract</span><button class="v copy" type="button" data-copy={c.contract}>{shortAddress(c.contract)} #{t.id}</button></div>
   {t.description && (<><hr /><p class="desc lower">{t.description}</p></>)}
   <p class="links">
@@ -48,6 +48,7 @@ const snapshot = t.listing?.priceWei ?? '';
 </div>
 <style>
   .title { font: 400 15px/1.3 var(--mono); margin: 6px 0 4px; overflow-wrap: anywhere; }
+  .mnote { color: var(--muted); }
   .collab { color: var(--fg, #fff); text-transform: none; }
   .desc { color: #aaa; line-height: 1.7; white-space: pre-line; overflow-wrap: anywhere; }
   .links { display: flex; gap: 14px; flex-wrap: wrap; margin: 14px 0; }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut, TokenOut } from '../../src/lib/data';
-import { editionText, fitInside, fitText, labelFilename, labelImage, labelLines, safeJson, sizedSvg, splitLine, svgIntrinsic } from '../../src/lib/label';
+import { editionText, mintingText, fitInside, fitText, labelFilename, labelImage, labelLines, safeJson, sizedSvg, splitLine, svgIntrinsic } from '../../src/lib/label';
 
 const c = { title: 'SILVER SURFER', standard: 'erc721', firstMint: '2023-03-27T10:00:00.000Z' } as CollectionOut;
 const t = {
@@ -116,6 +116,23 @@ describe('numbered edition', () => {
   it('appears on the print label', () => {
     const lines = labelLines(t, { ...c, works: 673 } as CollectionOut).map((l) => l.text);
     expect(lines).toContain('1/1/673 · erc-721');
+  });
+});
+
+describe('supply cap and still minting', () => {
+  it('uses the supply cap as the denominator when there is one', () => {
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 17, supplyCap: 69 })).toBe('1/1/69 · erc-721');
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 673, supplyCap: null })).toBe('1/1/673 · erc-721');
+    expect(editionText({ supply: 25 }, { standard: 'erc1155', works: 3, supplyCap: 69 })).toBe('edition of 25 · erc-1155');
+  });
+  it('reads 1/1/69 on the print label', () => {
+    const lines = labelLines(t, { ...c, works: 17, supplyCap: 69, minting: true } as CollectionOut).map((l) => l.text);
+    expect(lines).toContain('1/1/69 · erc-721');
+  });
+  it('says still minting only while a collection is minting', () => {
+    expect(mintingText({ minting: true })).toBe('still minting');
+    expect(mintingText({ minting: false })).toBeNull();
+    expect(mintingText({})).toBeNull();
   });
 });
 

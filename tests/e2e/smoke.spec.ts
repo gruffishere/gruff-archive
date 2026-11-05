@@ -151,6 +151,24 @@ test('facets is an experiment with its links', async ({ page }) => {
   await expect(page.locator('.clinks a')).toHaveText(['site ↗']);
 });
 
+// skips only while the committed catalog has no pulverulents collection yet (the inventory adds it)
+test('pulverulents is numbered by its supply cap and says it is still minting', async ({ page }) => {
+  const c = collections().find((x) => x.slug === 'pulverulents');
+  test.skip(!c, 'pending the inventory run: the committed catalog has no pulverulents yet');
+  expect(c!.supplyCap).toBe(69);
+  await checkPage(page, '/');
+  if (c!.minting) await expect(page.locator('#ledger a.row[data-code="PUL"] .mint')).toHaveText('still minting');
+  await checkPage(page, '/c/pulverulents/');
+  if (c!.minting) {
+    await expect(page.locator('p.k', { hasText: 'erc721' }).first()).toContainText('· still minting');
+    expect(await page.locator('.mnote').first().evaluate((e) => getComputedStyle(e).textTransform)).toBe('none');
+  }
+  const first = tokensOf('pulverulents').find((t) => t.supply > 0)!;
+  await checkPage(page, workPath('pulverulents', first.id));
+  await expect(page.locator('.label')).toContainText('1/1/69 · erc-721');
+  if (c!.minting) await expect(page.locator('.label')).toContainText('still minting');
+});
+
 test('large collection work pages exist', async ({ page }) => {
   await checkPage(page, '/w/facets/1/');
 });
