@@ -1,5 +1,7 @@
 import { catalogPieces } from '../../src/lib/catalog';
+import { countLabel } from '../../src/lib/collections';
 import { collections, tokensOf } from '../../src/lib/data';
+import { workPath } from '../../src/lib/links';
 import { expect, test, type Page } from '@playwright/test';
 
 export async function checkPage(page: Page, path: string, status = 200) {
@@ -23,11 +25,20 @@ test('404 is a closed room', async ({ page }) => {
   await expect(page.getByText('this room is closed')).toBeVisible();
 });
 
+// Counts come from the catalog itself, so they hold before and after an inventory moves a collection between sections.
+const sections = () => {
+  const all = collections();
+  const exp = all.filter((c) => c.section === 'experiments');
+  const idx = all.filter((c) => c.section === 'index');
+  return { exp, idx, rows: exp.length + idx.length, meta: `${countLabel(idx.length, 'collection')} · ${countLabel(exp.length, 'experiment')}` };
+};
+
 test('index lists the collections and filters them', async ({ page }) => {
   await checkPage(page, '/');
+  const s = sections();
   const rows = page.locator('#ledger a.row');
-  await expect(rows).toHaveCount(17);
-  await expect(page.locator('.meta-line')).toContainText('16 collections · 1 experiment · ');
+  await expect(rows).toHaveCount(s.rows);
+  await expect(page.locator('.meta-line')).toContainText(`${s.meta} · `);
   const wm = (await page.locator('header .wm').boundingBox())!;
   const tag = (await page.locator('header .tagline').boundingBox())!;
   expect(tag.y).toBeGreaterThanOrEqual(wm.y + wm.height - 2);
@@ -37,15 +48,15 @@ test('index lists the collections and filters them', async ({ page }) => {
   };
   expect(Math.abs((await yearEdge('PHG')) - (await yearEdge('FCT')))).toBeLessThanOrEqual(1);
   await page.getByRole('button', { name: 'on-chain' }).click();
-  // on-chain: 2 collections plus the OVVN experiment
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount(3);
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount([...s.idx, ...s.exp].filter((c) => c.techniques.includes('on-chain')).length);
   await page.getByRole('button', { name: 'experiments' }).click();
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount(1);
-  await expect(page.locator('#ledger a.row:visible')).toHaveAttribute('data-code', 'OVN');
-  await expect(page.locator('#ledger a.row:visible .exp')).toHaveText('exp.');
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount(s.exp.length);
+  expect(await page.locator('#ledger a.row:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.code).sort())).toEqual(s.exp.map((c) => c.code).sort());
+  await expect(page.locator('#ledger a.row[data-code="OVN"]:visible')).toHaveCount(1);
+  await expect(page.locator('#ledger a.row:visible .exp')).toHaveText(s.exp.map(() => 'exp.'));
   // geometric: the marker sits on the title's first line, before it
-  const eb = (await page.locator('#ledger a.row:visible .exp').boundingBox())!;
-  const tb = (await page.locator('#ledger a.row:visible .tt').boundingBox())!;
+  const eb = (await page.locator('#ledger a.row:visible .exp').first().boundingBox())!;
+  const tb = (await page.locator('#ledger a.row:visible .tt').first().boundingBox())!;
   expect(eb.x + eb.width).toBeLessThanOrEqual(tb.x + 1);
   expect(Math.abs(eb.y + eb.height / 2 - (tb.y + 8))).toBeLessThanOrEqual(8);
   await expect(page.getByText(/last inventory:/i)).toBeVisible();
@@ -62,13 +73,13 @@ test('time scrubber rewinds the archive', async ({ page }) => {
   await slider.focus();
   await slider.press('Home');
   await expect(page.locator('#scrub-label')).toContainText('01.2023');
-  expect(await page.locator('#ledger a.row:visible').count()).toBeLessThan(17);
+  expect(await page.locator('#ledger a.row:visible').count()).toBeLessThan(sections().rows);
   await expect(page.locator('#ledger a.row[data-code="OVN"]')).toBeHidden();
   await expect(page.locator('#exp-count')).toBeHidden();
   await slider.press('End');
   await expect(page.locator('#scrub-label')).toHaveText('archive as of: now');
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount(17);
-  await expect(page.locator('.meta-line')).toContainText('16 collections · 1 experiment');
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount(sections().rows);
+  await expect(page.locator('.meta-line')).toContainText(sections().meta);
   await expect(page.locator('#ledger a.row[data-code="OVN"]')).toBeVisible();
 });
 
@@ -87,6 +98,45 @@ test('work page shows the wall label and navigates with arrows', async ({ page }
   await expect(page.locator('h2.act-h')).toBeVisible();
   await page.keyboard.press('ArrowRight');
   await expect(page).toHaveURL(/\/w\/silver-surfer\/2\/$/);
+});
+
+test('an erc-721 collection of several works numbers its editions 1/1/<works>', async ({ page }) => {
+  const c = collections().find((x) => x.slug === 'silver-surfer')!;
+  expect(c.works).toBeGreaterThan(1);
+  await checkPage(page, '/w/silver-surfer/1/');
+  await expect(page.locator('.label')).toContainText(`1/1/${c.works} · erc-721`);
+  const single = collections().find((x) => x.standard === 'erc721' && x.works === 1);
+  if (single) {
+    await checkPage(page, workPath(single.slug, tokensOf(single.slug).find((t) => t.supply > 0)!.id));
+    await expect(page.locator('.label')).toContainText('1/1 · erc-721');
+    await expect(page.locator('.label')).not.toContainText('1/1/');
+  }
+});
+
+// FACETS moving to the experiments section and the collection links reach the catalog only through the indexer, so these
+// wait for the inventory run (the committed catalog predates config/collections.yaml) and then hold for good.
+test('facets is an experiment with its links', async ({ page }) => {
+  const c = collections().find((x) => x.slug === 'facets')!;
+  test.skip(c.section !== 'experiments' || !c.links?.length, 'pending the inventory run: the committed catalog predates the config change');
+  await checkPage(page, '/');
+  await expect(page.locator('#ledger a.row[data-code="FCT"]')).toHaveAttribute('data-exp', 'true');
+  await expect(page.locator('#ledger a.row[data-code="FCT"] .exp')).toHaveText('exp.');
+  await checkPage(page, '/experiments/');
+  await expect(page.locator('.room', { hasText: 'FACETS' })).toHaveCount(1);
+  await checkPage(page, '/c/facets/');
+  const links = page.locator('.clinks a');
+  await expect(links).toHaveText(['site ↗', 'x ↗', 'thread ↗']);
+  await expect(links.first()).toHaveAttribute('href', 'https://thefacets.art');
+  await expect(links.nth(2)).toHaveAttribute('href', 'https://x.com/facetsart/status/2097902091637256575');
+  for (const a of await links.all()) {
+    await expect(a).toHaveAttribute('target', '_blank');
+    await expect(a).toHaveAttribute('rel', /noopener/);
+    expect((await a.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
+  }
+  await checkPage(page, '/w/facets/1/');
+  await expect(page.locator('.label .links a', { hasText: 'thread ↗' })).toHaveAttribute('href', /x\.com\/facetsart\/status\//);
+  await checkPage(page, '/c/ovvn/');
+  await expect(page.locator('.clinks a')).toHaveText(['site ↗']);
 });
 
 test('large collection work pages exist', async ({ page }) => {
@@ -232,7 +282,7 @@ test('about lists the socials and experiments lists the rooms', async ({ page })
     expect(st.before).toBe('"— "');
   }
   await checkPage(page, '/experiments/');
-  await expect(page.locator('.room')).toHaveCount(1);
+  await expect(page.locator('.room')).toHaveCount(sections().exp.length);
 });
 
 test('idle fade and the mobile menu', async ({ page }, info) => {
@@ -297,6 +347,37 @@ test('a work page links to the original on arweave', async ({ page }) => {
   await checkPage(page, '/w/antique/2/');
   const link = page.getByRole('link', { name: 'original ↗' });
   await expect(link).toHaveAttribute('href', /^https:\/\/arweave\.net\//);
+});
+
+test('hovering or focusing an animated catalog piece plays its gif, leaving restores the still', async ({ page }) => {
+  const cols = collections();
+  const gif = catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]))).find((p) => p.hover?.type === 'gif' && p.hover.src.endsWith('.gif'));
+  test.skip(!gif, 'no animated piece hangs on the wall');
+  const gifRequests: string[] = [];
+  page.on('request', (r) => /\.gif(\?|$)/i.test(r.url()) && gifRequests.push(r.url()));
+  await checkPage(page, '/catalog/');
+  await expect(page.locator('#salon.on')).toBeVisible();
+  const tile = page.locator(`#salon a.tile[href="${workPath(gif!.slug, gif!.id)}"]`);
+  const img = tile.locator('img');
+  await tile.scrollIntoViewIfNeeded();
+  const still = await img.getAttribute('src');
+  expect(still).toMatch(/\.webp$/);
+  expect(gifRequests, 'no gif before the first hover').toEqual([]);
+  const before = (await tile.boundingBox())!;
+  await tile.hover();
+  await expect(img).toHaveAttribute('src', /\.gif$/);
+  await expect.poll(() => gifRequests.length).toBeGreaterThan(0);
+  const during = (await tile.boundingBox())!;
+  expect([during.x, during.y, during.width, during.height]).toEqual([before.x, before.y, before.width, before.height]);
+  expect(await img.evaluate((e) => getComputedStyle(e).objectFit)).toBe('cover');
+  await page.mouse.move(0, 0);
+  await expect(img).toHaveAttribute('src', still!);
+  // keyboard focus plays it too, blur stops it
+  await page.keyboard.press('Shift');
+  await tile.focus();
+  await expect(img).toHaveAttribute('src', /\.gif$/);
+  await tile.evaluate((e) => (e as HTMLElement).blur());
+  await expect(img).toHaveAttribute('src', still!);
 });
 
 test('catalog hangs the works on one wall', async ({ page }, info) => {
