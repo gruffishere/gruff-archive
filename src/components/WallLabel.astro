@@ -42,6 +42,7 @@ const snapshot = t.listing?.priceWei ?? '';
     <a class="hit" href={etherscanToken(c.contract, t.id)} rel="noopener" target="_blank">etherscan ↗</a>
     <a class="hit" href={openseaItem(c.contract, t.id)} rel="noopener" target="_blank">opensea ↗</a>
     {platform && <a class="hit" href={platform.url} rel="noopener" target="_blank">{platform.label} ↗</a>}
+    {(c.links ?? []).map((l) => <a class="hit" href={l.url} rel="noopener" target="_blank">{l.label} ↗</a>)}
   </p>
   <button class="print" type="button" id="print-label">print label ↓</button>
 </div>

@@ -44,10 +44,10 @@ describe('parseConfig', () => {
 });
 
 describe('loadConfig (real file)', () => {
-  it('has 16 index collections and OVVN in experiments', () => {
+  it('has 15 index collections, with FACETS and OVVN in experiments', () => {
     const c = loadConfig();
-    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(16);
-    expect(c.collections.find((x) => x.code === 'OVN')?.section).toBe('experiments');
+    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(15);
+    expect(c.collections.filter((x) => x.section === 'experiments').map((x) => x.code).sort()).toEqual(['FCT', 'OVN']);
     expect(c.collections.find((x) => x.code === '366')?.tokenIds).toEqual(['366']);
   });
 
@@ -82,6 +82,33 @@ describe('parseConfig extras (M3, M7)', () => {
   it('accepts a per-token collaborators override', () => {
     const c = parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    collaborators: { "3": ["A", "B"] }'));
     expect(c.collections[0].collaborators).toEqual({ '3': ['A', 'B'] });
+  });
+
+  it('accepts per-collection links and defaults to none', () => {
+    expect(parseConfig(yaml).collections[0].links).toBeUndefined();
+    const c = parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    links: [{ label: site, url: "https://thefacets.art" }]'));
+    expect(c.collections[0].links).toEqual([{ label: 'site', url: 'https://thefacets.art' }]);
+  });
+
+  it('rejects non-https links and unknown link fields', () => {
+    const w = (v: string) => yaml.replace('techniques: [illustration]', `techniques: [illustration]\n    links: [${v}]`);
+    expect(() => parseConfig(w('{ label: site, url: "http://x.art" }'))).toThrow();
+    expect(() => parseConfig(w('{ label: site, url: "javascript:alert(1)" }'))).toThrow();
+    expect(() => parseConfig(w('{ label: "", url: "https://x.art" }'))).toThrow();
+    expect(() => parseConfig(w('{ label: site, url: "https://x.art", extra: 1 }'))).toThrow();
+  });
+
+  it('gives FACETS and OVVN their links in the real config', async () => {
+    const { loadConfig } = await import('../../indexer/config');
+    const cols = loadConfig().collections;
+    const by = (slug: string) => cols.find((c) => c.slug === slug)!;
+    expect(by('facets').section).toBe('experiments');
+    expect(by('facets').links).toEqual([
+      { label: 'site', url: 'https://thefacets.art' },
+      { label: 'x', url: 'https://x.com/facetsart' },
+      { label: 'thread', url: 'https://x.com/facetsart/status/2097902091637256575' },
+    ]);
+    expect(by('ovvn').links).toEqual([{ label: 'site', url: 'https://ovvn.art' }]);
   });
 
   it('rejects a malformed collaborators override', () => {

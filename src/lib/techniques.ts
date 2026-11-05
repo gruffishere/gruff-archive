@@ -1,7 +1,8 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
 
-const index = (cols: CollectionOut[]) => cols.filter((c) => c.section === 'index');
+/** Every collection, the experiments included: no work silently drops out of the page. */
+const index = (cols: CollectionOut[]) => cols.filter((c) => c.section === 'index' || c.section === 'experiments');
 
 export function techniqueYears(cols: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>) {
   const order: string[] = [];

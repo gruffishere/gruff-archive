@@ -14,7 +14,7 @@ describe('techniques', () => {
       years: ['2023', '2026'],
       rows: [
         { technique: 'illustration', counts: [3, 0] },
-        { technique: 'generative', counts: [0, 1] },
+        { technique: 'generative', counts: [0, 2] },
         { technique: 'on-chain', counts: [0, 1] },
       ],
     });
@@ -28,6 +28,12 @@ describe('techniques', () => {
   });
   it('computes balance and on-chain share', () => {
     expect(balance(cols)).toEqual({ oneOfOne: 2, editionPieces: 40 });
-    expect(onChainShare(cols)).toBeCloseTo(6 / 11);
+    expect(onChainShare(cols)).toBeCloseTo(6 / 12);
+  });
+  it('counts experiments too, so no work drops out of the page', () => {
+    const only = [col({ slug: 'x', section: 'experiments', techniques: ['generative'], works: 4 })];
+    expect(techniqueYears(only, { x: [tok('2026-09-01T00:00:00.000Z')] }).rows).toEqual([{ technique: 'generative', counts: [1] }]);
+    expect(onChainShare([col({ slug: 'o', section: 'experiments', techniques: ['on-chain'], works: 3 }), col({ slug: 'i', works: 1 })])).toBeCloseTo(3 / 4);
+    expect(balance([col({ slug: 'g', section: 'experiments', techniques: ['generative'], works: 5 })]).oneOfOne).toBe(0);
   });
 });

@@ -6,6 +6,7 @@ import { firstYear, inCirculation, layoutOf } from '../../lib/collections';
 import { displayName, formatEth } from '../../lib/format';
 import { workPath } from '../../lib/links';
 import { chooseMedia } from '../../lib/media';
+import CollectionLinks from '../../components/CollectionLinks.astro';
 
 export function getStaticPaths() {
   return collections().map((c) => ({ params: { slug: c.slug }, props: { c } }));
@@ -20,6 +21,7 @@ const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYea
     <p class="k crumbs"><a class="back" href={c.section === 'experiments' ? '/experiments/' : '/'}>← {c.section === 'experiments' ? 'experiments' : 'index'}</a> · {c.accession}</p>
     <h1 class="title">{c.title}</h1>
     <p class="k"><span class="lower">gruff</span>, {span} · {c.platform} · {c.standard}</p>
+    <CollectionLinks links={c.links} />
     {c.wallText && <p class="lower wall">{c.wallText}</p>}
     <div class="stats">
       <div class="lr"><span class="l">works</span><span class="v">{c.works}</span></div>

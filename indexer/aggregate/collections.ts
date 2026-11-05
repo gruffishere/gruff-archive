@@ -12,6 +12,7 @@ export interface CollectionOut {
   standard: CollectionConfig['standard'];
   platform: CollectionConfig['platform'];
   platformUrl: string | null;
+  links: { label: string; url: string }[];
   section: CollectionConfig['section'];
   techniques: string[];
   wallText: string | null;
@@ -54,6 +55,7 @@ export function buildCollection(i: {
     standard: i.cfg.standard,
     platform: i.cfg.platform,
     platformUrl: i.cfg.platformUrl ?? null,
+    links: i.cfg.links ?? [],
     section: i.cfg.section,
     techniques: i.cfg.techniques,
     wallText: i.cfg.wallText ?? i.osDescription ?? null,

@@ -24,6 +24,7 @@ const collectionSchema = z.object({
   metadata: z.enum(['blockscout', 'chain']).default('blockscout'),
   accessionWidth: z.number().int().positive().optional(),
   collaborators: z.record(z.string(), z.array(z.string())).optional(),
+  links: z.array(z.object({ label: z.string().min(1), url: z.string().url().startsWith('https://') }).strict()).optional(),
 }).strict();
 
 const fileSchema = z.object({

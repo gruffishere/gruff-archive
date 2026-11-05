@@ -1,0 +1,13 @@
+---
+interface Props { links?: { label: string; url: string }[] }
+const links = Astro.props.links ?? [];
+---
+{links.length > 0 && (
+  <p class="k clinks">
+    {links.map((l, i) => (<>{i > 0 && ' · '}<a class="hit" href={l.url} target="_blank" rel="noopener">{l.label} ↗</a></>))}
+  </p>
+)}
+<style>
+  .clinks { margin: 2px 0 0; }
+  .clinks a { display: inline-flex; align-items: center; text-decoration: underline; text-decoration-color: #444; text-underline-offset: 6px; }
+</style>

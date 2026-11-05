@@ -23,6 +23,8 @@ export interface CollectionConfig {
   accessionWidth?: number;
   /** Per-token collaborator names that replace what is parsed from the description. */
   collaborators?: Record<string, string[]>;
+  /** Quiet links shown under the collection meta line and on each work label. */
+  links?: { label: string; url: string }[];
 }
 
 export interface RawTransfer {

@@ -180,7 +180,29 @@ describe('buildCollection', () => {
       coverTokenId: '1',
       wallText: 'desc',
       platformUrl: null,
+      links: [],
     });
+  });
+
+  it('carries the configured links', () => {
+    const links = [{ label: 'site', url: 'https://thefacets.art' }];
+    const c = buildCollection({ cfg: { ...cfg, links }, artist: ARTIST, year: 2023, tokens: buildTokens(inputs), balances: inputs.balances, floorWei: null, osDescription: null, staleSince: null });
+    expect(c.links).toEqual(links);
+  });
+});
+
+describe('originals of OpenSea fallback images', () => {
+  it('links the full-size png when the image came from the OpenSea fallback', () => {
+    const osImage = 'https://i2c.seadn.io/ethereum/0xc/p.png';
+    const media = new Map([['1', { image: { kind: 'image' as const, thumb: '/media/t.webp', large: '/media/l.webp', file: null }, animation: null, osImage }]]);
+    const t = buildTokens({ ...inputs, media }).find((x) => x.id === '1')!;
+    expect(t.originals.image).toBe(`${osImage}?format=png&w=4000`);
+  });
+  it('otherwise keeps the minted source', () => {
+    const metas = new Map(inputs.metas);
+    metas.set('1', { ...metas.get('1')!, image: 'ar://abc' });
+    const t = buildTokens({ ...inputs, metas }).find((x) => x.id === '1')!;
+    expect(t.originals.image).toBe('https://arweave.net/abc');
   });
 });
 
