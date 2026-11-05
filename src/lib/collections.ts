@@ -1,5 +1,6 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
+import type { Room } from './rooms';
 
 export type IndexFilter = 'all' | 'one-of-one' | 'editions' | 'generative' | 'on-chain' | 'experiments';
 export const INDEX_FILTERS: { key: IndexFilter; label: string }[] = [
@@ -26,7 +27,20 @@ const byFirstMintDesc = (a: CollectionOut, b: CollectionOut) => (b.firstMint ?? 
 export const indexCollections = (all: CollectionOut[]) => all.filter((c) => c.section === 'index').sort(byFirstMintDesc);
 /** The index ledger: the collections plus the experiments, newest first. */
 export const indexLedger = (all: CollectionOut[]) => all.filter((c) => c.section === 'index' || c.section === 'experiments').sort(byFirstMintDesc);
-export const countLabel = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+export type LedgerEntry = { kind: 'collection'; c: CollectionOut } | { kind: 'room'; room: Room };
+const entryMonth = (e: LedgerEntry) => (e.kind === 'room' ? e.room.since : (e.c.firstMint ?? '').slice(0, 7));
+const entryStamp = (e: LedgerEntry) => (e.kind === 'room' ? `${e.room.since}-01` : (e.c.firstMint ?? ''));
+/** The index ledger with the rooms: collections, experiments and rooms in one list, newest first (rooms by `since`). */
+export function ledgerEntries(all: CollectionOut[], rooms: Room[]): LedgerEntry[] {
+  const entries: LedgerEntry[] = [...indexLedger(all).map((c): LedgerEntry => ({ kind: 'collection', c })), ...rooms.map((room): LedgerEntry => ({ kind: 'room', room }))];
+  return entries.sort((a, b) => entryMonth(b).localeCompare(entryMonth(a)) || entryStamp(b).localeCompare(entryStamp(a)));
+}
+/** Rooms count as experiments next to the experiment collections. */
+export function ledgerCounts(entries: LedgerEntry[]) {
+  const experiments = entries.filter((e) => e.kind === 'room' || e.c.section === 'experiments').length;
+  return { collections: entries.length - experiments, experiments };
+}
+export const countLabel= (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
 export const experimentCollections = (all: CollectionOut[]) => all.filter((c) => c.section === 'experiments').sort(byFirstMintDesc);
 export const firstYear = (c: CollectionOut) => c.firstMint?.slice(0, 4) ?? '—';
 export function archiveSpan(all: CollectionOut[]): string {
