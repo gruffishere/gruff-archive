@@ -21,7 +21,9 @@ const pieces = await measurePieces(catalogPieces(cols, Object.fromEntries(cols.m
           data-weight={p.weight}
           style={`aspect-ratio:${p.w} / ${p.h}`}
         >
-          {p.kind === 'img' ? (
+          {p.kind === 'img' && p.hover?.type === 'video' ? (
+            <video class:list={{ px: p.pixelated }} src={p.hover.src} poster={p.src} muted loop playsinline preload="none" aria-hidden="true" width={p.w} height={p.h} />
+          ) : p.kind === 'img' ? (
             <img
               class:list={{ px: p.pixelated }}
               src={p.src}
@@ -32,6 +34,8 @@ const pieces = await measurePieces(catalogPieces(cols, Object.fromEntries(cols.m
               height={p.h}
               loading="lazy"
               decoding="async"
+              data-still={p.src}
+              data-gif={p.hover?.type === 'gif' ? p.hover.src : undefined}
             />
           ) : (
             <iframe src={p.src} title="" sandbox="allow-scripts" loading="lazy" tabindex="-1" aria-hidden="true" />
@@ -48,11 +52,11 @@ const pieces = await measurePieces(catalogPieces(cols, Object.fromEntries(cols.m
   /* no-JS fallback: a plain wrapped row of fixed-height pieces */
   .salon { display: flex; flex-wrap: wrap; gap: 12px; position: relative; }
   .salon .tile { display: block; height: 160px; flex: 0 0 auto; max-width: 100%; background: #050505; outline: 1px solid transparent; outline-offset: 0; }
-  .salon .tile img, .salon .tile iframe { display: block; width: 100%; height: 100%; border: 0; object-fit: cover; }
+  .salon .tile img, .salon .tile video, .salon .tile iframe { display: block; width: 100%; height: 100%; border: 0; object-fit: cover; }
   .salon .tile iframe { pointer-events: none; }
-  .salon .tile img.px { image-rendering: pixelated; }
+  .salon .tile img.px, .salon .tile video.px { image-rendering: pixelated; }
   .salon .tile:hover, .salon .tile:focus-visible { outline-color: var(--fg); }
-  .salon .tile:hover img, .salon .tile:hover iframe { filter: brightness(1.08); }
+  .salon .tile:hover img, .salon .tile:hover video, .salon .tile:hover iframe { filter: brightness(1.08); }
   /* runtime state: positioned by src/scripts/catalog.ts */
   .salon.on { display: block; }
   .salon.on .tile { position: absolute; height: auto; max-width: none; }

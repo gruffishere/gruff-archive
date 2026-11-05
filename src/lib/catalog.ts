@@ -15,6 +15,8 @@ export interface Piece {
   /** Larger static webp for the srcset; never an animated original. */
   large: string | null;
   pixelated: boolean;
+  /** What plays on hover or keyboard focus: the original gif, or the video file. Never loaded before then. */
+  hover: { type: 'gif' | 'video'; src: string } | null;
   weight: number;
 }
 export interface SizedPiece extends Piece {
@@ -78,7 +80,10 @@ function pieceOf(c: CollectionOut, t: TokenOut): Piece | null {
     kind = 'iframe';
     src = live.src;
   }
-  return { slug: c.slug, id: t.id, title: t.name, collection: c.title, kind, src, large, pixelated, weight: pieceWeight(c.slug, t.id) };
+  const im = t.image;
+  const motion = im?.animated ? (im.file ?? im.remote) : im?.kind === 'video' ? im.file : null;
+  const hover: Piece['hover'] = kind === 'img' && motion ? { type: im?.kind === 'video' ? 'video' : 'gif', src: motion } : null;
+  return { slug: c.slug, id: t.id, title: t.name, collection: c.title, kind, src, large, pixelated, hover, weight: pieceWeight(c.slug, t.id) };
 }
 
 /** The wall: every work of the non-generative collections once, five spread pieces of each generative one, mixed by a fixed-seed shuffle. */

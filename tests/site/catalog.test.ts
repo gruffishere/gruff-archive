@@ -57,6 +57,22 @@ describe('catalogPieces', () => {
     expect(out.find((p) => p.id === '1')).toMatchObject({ kind: 'iframe', src: '/media/p.html' });
     expect(out.find((p) => p.id === '2')).toMatchObject({ kind: 'img', src: '/media/g-t.webp', large: null });
   });
+  it('offers the original gif (or its remote copy) and video files for hover motion', () => {
+    const gif = img('1', { image: { kind: 'image', thumb: '/media/g-t.webp', large: '/media/g.gif', file: '/media/g.gif', animated: true } });
+    const big = img('2', { image: { kind: 'image', thumb: '/media/b-t.webp', large: null, file: null, animated: true, remote: 'https://arweave.net/big' } });
+    const lost = img('3', { image: { kind: 'image', thumb: '/media/l-t.webp', large: null, file: null, animated: true } });
+    const vid = img('4', { image: { kind: 'video', thumb: '/media/v-t.webp', large: null, file: '/media/v.mp4' } });
+    const still = img('5');
+    const out = catalogPieces([col('m')], { m: [gif, big, lost, vid, still] });
+    const hover = (id: string) => out.find((p) => p.id === id)?.hover;
+    expect(hover('1')).toEqual({ type: 'gif', src: '/media/g.gif' });
+    expect(hover('2')).toEqual({ type: 'gif', src: 'https://arweave.net/big' });
+    expect(hover('3')).toBeNull();
+    expect(hover('4')).toEqual({ type: 'video', src: '/media/v.mp4' });
+    expect(hover('5')).toBeNull();
+    // the shown file stays the static rendition
+    expect(out.find((p) => p.id === '1')).toMatchObject({ kind: 'img', src: '/media/g-t.webp' });
+  });
   it('never hangs the same image twice, and generative picks skip duplicates', () => {
     const dup = (id: string) => img(id, { image: { kind: 'image', thumb: '/media/ph-t.webp', large: '/media/ph-l.webp', file: null } as TokenOut['image'] });
     const live = (id: string) => img(id, { image: null, animation: { kind: 'html', thumb: null, large: null, file: `/media/${id}.html` } as TokenOut['animation'] });
@@ -85,7 +101,7 @@ describe('catalogPieces', () => {
 });
 
 describe('measurePieces', () => {
-  const base = { slug: 's', title: 't', collection: 'c', large: null, pixelated: false, weight: 1 } as const;
+  const base = { slug: 's', title: 't', collection: 'c', large: null, pixelated: false, hover: null, weight: 1 } as const;
   it('drops an unmeasurable raster piece with a warning and keeps html at 1:1', async () => {
     const { measurePieces } = await import('../../src/lib/catalog');
     const { vi } = await import('vitest');
