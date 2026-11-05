@@ -37,7 +37,7 @@ export function originalLink(t: TokenOut): { url: string; where: string } | null
   const remote = anim ? t.originals?.animation : t.originals?.image;
   if (remote) {
     const host = hostLabel(remote);
-    const where = host === 'arweave.net' ? 'arweave' : host && (/(^|.)(pinata.cloud|ipfs.io|filebase.io|dweb.link)$/.test(host) || new URL(remote).pathname.startsWith('/ipfs/')) ? 'ipfs' : (host ?? 'original');
+    const where = host === 'arweave.net' ? 'arweave' : host && (host === 'seadn.io' || host.endsWith('.seadn.io')) ? 'opensea' : host && (/(^|.)(pinata.cloud|ipfs.io|filebase.io|dweb.link)$/.test(host) || new URL(remote).pathname.startsWith('/ipfs/')) ? 'ipfs' : (host ?? 'original');
     return { url: remote, where };
   }
   const local = anim ? (t.animation?.file ?? t.animation?.large ?? t.image?.file) : (t.image?.file ?? t.image?.large);

@@ -3,6 +3,7 @@ import { parseCollaborators } from '../collaborators';
 import { DEAD, type Balances, ZERO } from '../ledger';
 import type { StoredMedia } from '../media';
 import { toPublicUrl } from '../originals';
+import { seadnOriginal } from '../seadn';
 import type { ArchiveEvent, CollectionConfig, Listing, MintInfo, TokenMeta } from '../types';
 import { EXCLUDED_HOLDERS, isKeeperAddress } from './exclusions';
 
@@ -34,7 +35,7 @@ export interface TokenInputs {
   mints: Map<string, MintInfo>;
   events: ArchiveEvent[]; // newest first
   listings: Map<string, Listing>;
-  media: Map<string, { image: StoredMedia | null; animation: StoredMedia | null }>;
+  media: Map<string, { image: StoredMedia | null; animation: StoredMedia | null; /** the OpenSea url the image came from, when the token had none of its own */ osImage?: string }>;
   ens: Map<string, string>;
   /** Config `excludeHolders`: never counted as holders (they still show as owners). */
   excludeHolders?: ReadonlySet<string>;
@@ -106,7 +107,7 @@ export function buildTokens(i: TokenInputs): TokenOut[] {
       description: meta?.description ?? null,
       image: media?.image ?? null,
       animation: media?.animation ?? null,
-      originals: { image: toPublicUrl(meta?.image ?? null), animation: toPublicUrl(meta?.animation ?? null) },
+      originals: { image: media?.osImage ? seadnOriginal(media.osImage) : toPublicUrl(meta?.image ?? null), animation: toPublicUrl(meta?.animation ?? null) },
       collaborators: i.cfg.collaborators?.[id] ?? parseCollaborators(meta?.description ?? null),
       mint,
       lastSale: lastSale ? { at: lastSale.timestamp, priceWei: lastSale.priceWei! } : null,

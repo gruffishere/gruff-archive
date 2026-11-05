@@ -52,6 +52,11 @@ describe('originalLink', () => {
     const html = tok({ image: img as never, animation: { kind: 'html', thumb: null, large: null, file: '/media/x.html' } as never });
     expect(originalLink(html)).toEqual({ url: '/media/x.html', where: 'on-chain' });
   });
+  it('calls an OpenSea cdn original opensea', () => {
+    expect(originalLink(tok({ image: img as never, originals: { image: 'https://i2c.seadn.io/ethereum/0x1/a.png?format=png&w=4000', animation: null } }))).toEqual({ url: 'https://i2c.seadn.io/ethereum/0x1/a.png?format=png&w=4000', where: 'opensea' });
+    expect(originalLink(tok({ image: img as never, originals: { image: 'https://seadn.io/a.png', animation: null } }))?.where).toBe('opensea');
+    expect(originalLink(tok({ image: img as never, originals: { image: 'https://notseadn.io/a.png', animation: null } }))?.where).toBe('notseadn.io');
+  });
   it('is null without any media', () => {
     expect(originalLink(tok({}))).toBeNull();
   });

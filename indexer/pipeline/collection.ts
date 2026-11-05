@@ -5,6 +5,7 @@ import { buildBalances, chainEvents, ensMap, type Balances } from '../ledger';
 import { isStored, manifestKey, storeMedia, type ManifestEntry, type MediaDeps, type StoredMedia } from '../media';
 import { mergeEvents } from '../merge-events';
 import { mintInfo } from '../mint-prices';
+import { seadnFull } from '../seadn';
 import { bestListings, normalizeListing, normalizeOsEvent, type OpenSea } from '../opensea';
 import { packTokenMeta, unpackTokenMeta } from '../meta-cache';
 import { readJson, writeJsonAtomic, writeJsonIfChanged } from '../store';
@@ -37,7 +38,7 @@ export interface CollectionState {
   listings: Map<string, Listing>;
   floorWei: string | null;
   osDescription: string | null;
-  media: Map<string, { image: StoredMedia | null; animation: StoredMedia | null }>;
+  media: Map<string, { image: StoredMedia | null; animation: StoredMedia | null; osImage?: string }>;
   ens: Map<string, string>;
   osStatus: 'ok' | 'skipped' | 'error';
   bsStatus: 'ok' | 'error';
@@ -211,9 +212,11 @@ export async function loadMedia(cfg: CollectionConfig, metas: Map<string, TokenM
   for (const [id, m] of metas) {
     if (cfg.tokenIds && !cfg.tokenIds.includes(id)) continue;
     let image = m.image ? await safe(m.image) : null;
+    let osImage: string | undefined;
     if (!image) {
       const fallback = await fallbackUrl(id);
-      if (fallback) image = await safe(fallback);
+      // OpenSea's CDN hands out a 500 px preview: ask for the cached full-size original instead
+      if (fallback && (image = await safe(seadnFull(fallback)))) osImage = fallback;
     }
     let animation: StoredMedia | null = null;
     if (m.animation && (isHtmlAnimation(m.animation) || (m.animation !== m.image && !isImageUrl(m.animation)))) {
@@ -224,7 +227,7 @@ export async function loadMedia(cfg: CollectionConfig, metas: Map<string, TokenM
         ctx.manifest[manifestKey(m.animation)] = { failedAt: now().toISOString() };
       }
     }
-    media.set(id, { image, animation });
+    media.set(id, osImage ? { image, animation, osImage } : { image, animation });
   }
   if (osDirty) writeJsonAtomic(osPath, osCache);
   return media;

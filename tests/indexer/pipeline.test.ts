@@ -153,3 +153,32 @@ describe('processCollection Blockscout failures (M1)', () => {
     expect(st.bsStatus).toBe('ok');
   });
 });
+
+describe('loadMedia OpenSea fallback at full size', () => {
+  const small = 'https://i2c.seadn.io/ethereum/0xabc/p.png';
+  const full = `${small}?w=4000`;
+
+  it('downloads the 4000 px source and remembers the original png link', async () => {
+    const os = fakeOs(async () => small);
+    const { ctx, download } = ctxWith({ os }, { [full]: { bytes: png, mime: 'image/png' } });
+    const media = await loadMedia(cfg, new Map([['1', meta('1')]]), ctx);
+    expect(download).toHaveBeenCalledWith(full);
+    expect(download).not.toHaveBeenCalledWith(small);
+    expect(media.get('1')!.image?.kind).toBe('image');
+    expect(media.get('1')!.osImage).toBe(small);
+  });
+
+  it('keeps the cached raw url as it is (the transform happens at use time)', async () => {
+    const os = fakeOs(async () => small);
+    const { ctx } = ctxWith({ os }, { [full]: { bytes: png, mime: 'image/png' } });
+    await loadMedia(cfg, new Map([['1', meta('1')]]), ctx);
+    expect(JSON.parse(readFileSync(join(ctx.rawDir, 'os-images', 'test.json'), 'utf8'))['1'].url).toBe(small);
+  });
+
+  it('marks no osImage when the token had its own image', async () => {
+    const os = fakeOs(async () => small);
+    const { ctx } = ctxWith({ os }, { 'https://a/1.png': { bytes: png, mime: 'image/png' } });
+    const media = await loadMedia(cfg, new Map([['1', meta('1', { image: 'https://a/1.png' })]]), ctx);
+    expect(media.get('1')!.osImage).toBeUndefined();
+  });
+});
