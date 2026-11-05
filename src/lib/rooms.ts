@@ -45,17 +45,20 @@ export function defineRoom(r: RoomInput): Room {
 
 /** YYYY-MM-DD as DD.MM.YYYY. */
 export const formatRoomDate = (date: string) => `${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)}`;
+/** The left-column label of a room: DD.MM.YYYY from its date, MM.YYYY from its month, a dash with neither. */
+export function roomDateLabel(r: { date?: string; since?: string }): string {
+  if (r.date) return formatRoomDate(r.date);
+  if (r.since && /^\d{4}-\d{2}$/.test(r.since)) return `${r.since.slice(5, 7)}.${r.since.slice(0, 4)}`;
+  return '—';
+}
 /** The meta line segments after "gruff, ": the date (or the bare year), the medium when there is one, the status. */
 export const roomMeta = (r: Pick<Room, 'date' | 'year' | 'medium' | 'status'>): string[] => [r.date ? formatRoomDate(r.date) : String(r.year), ...(r.medium ? [r.medium] : []), r.status];
-
-const PULVERULENTS_POST = 'https://x.com/gruffwashere/status/1960617797278687687';
 
 export const ROOMS: Room[] = [
   defineRoom({
     slug: 'dive-bar',
     title: '6529 Dive Bar',
-    year: 2026,
-    since: '2026-10',
+    date: '2026-10-30',
     status: 'in voting',
     medium: '6529',
     text: 'Real regulars on the stools saying what they really wrote, maybe behind the bar, live 6529 on the TV and a recipe for every Meme card in the book. Darts, beer pong and a napkin for your requests, in a bar that stays open as long as the Brain keeps talking.',
@@ -110,22 +113,6 @@ export const ROOMS: Room[] = [
     cover: '/exp/the-sigils/cover.webp',
     kind: 'embed',
     src: 'https://gruffishere.github.io/the-sigils/',
-  }),
-  defineRoom({
-    slug: 'pulverulents-trailer',
-    title: 'Pulverulents — trailer',
-    year: 2025,
-    since: '2025-08',
-    status: 'live',
-    medium: 'video',
-    text: 'The trailer for Pulverulents.',
-    links: [
-      { label: 'collection', url: '/c/pulverulents/' },
-      { label: 'x', url: PULVERULENTS_POST },
-    ],
-    cover: '/exp/pulverulents-trailer/cover.webp',
-    kind: 'embed',
-    src: xEmbedUrl(PULVERULENTS_POST)!,
   }),
 ];
 

@@ -6,15 +6,15 @@ import { parseCommentary } from '../../src/lib/commentary';
 import samples from '../../src/lib/sample-cards.json';
 import { DEALT_DECKS, cardSeed } from '../../src/lib/deal';
 import type { CollectionOut } from '../../src/lib/data';
-import { EMBED_ALLOW, ROOMS, ROOM_STATUSES, defineRoom, embedSandbox, formatRoomDate, roomMeta, roomFilterTags, roomPath, trailerEmbed, xEmbedUrl } from '../../src/lib/rooms';
+import { EMBED_ALLOW, ROOMS, ROOM_STATUSES, defineRoom, embedSandbox, formatRoomDate, roomDateLabel, roomMeta, roomFilterTags, roomPath, trailerEmbed, xEmbedUrl } from '../../src/lib/rooms';
 import { countLabel, ledgerCounts, ledgerEntries } from '../../src/lib/collections';
 import { roomVisibleAt } from '../../src/lib/timeline';
 
 const c = (p: Partial<CollectionOut>) => ({ code: 'X', slug: 'x', title: 'X', section: 'index', techniques: [], firstMint: '2023-01-01T00:00:00.000Z', works: 3, ...p }) as CollectionOut;
 
 describe('rooms data', () => {
-  it('has the five rooms', () => {
-    expect(ROOMS.map((r) => r.slug)).toEqual(['dive-bar', 'playing-cards', 'i-love-pure-chaos', 'the-sigils', 'pulverulents-trailer']);
+  it('has the four rooms', () => {
+    expect(ROOMS.map((r) => r.slug)).toEqual(['dive-bar', 'playing-cards', 'i-love-pure-chaos', 'the-sigils']);
   });
   it('is valid for every room', () => {
     for (const r of ROOMS) {
@@ -51,6 +51,25 @@ describe('rooms data', () => {
   it('builds paths and filter tags', () => {
     expect(roomPath('dive-bar')).toBe('/experiments/dive-bar/');
     expect(roomFilterTags()).toEqual(['all', 'experiments']);
+  });
+});
+
+describe('room date labels', () => {
+  it('gives DD.MM.YYYY for a full date, MM.YYYY for a month, a dash for neither', () => {
+    expect(roomDateLabel({ date: '2026-04-23', since: '2026-04' })).toBe('23.04.2026');
+    expect(roomDateLabel({ since: '2026-10' })).toBe('10.2026');
+    expect(roomDateLabel({})).toBe('—');
+    expect(roomDateLabel({ since: 'soon' })).toBe('—');
+  });
+  it('labels the real rooms', () => {
+    const l = (slug: string) => roomDateLabel(ROOMS.find((r) => r.slug === slug)!);
+    expect(l('dive-bar')).toBe('30.10.2026');
+    expect(l('the-sigils')).toBe('23.04.2026');
+    expect(l('i-love-pure-chaos')).toBe('18.05.2026');
+    expect(l('playing-cards')).toBe('10.2026');
+  });
+  it('has no trailer room: the trailer lives inside Pulverulents', () => {
+    expect(ROOMS.find((r) => r.slug.includes('trailer'))).toBeUndefined();
   });
 });
 
@@ -146,11 +165,6 @@ describe('xEmbedUrl', () => {
     expect(trailerEmbed([{ label: 'trailer', url: 'https://x.com/gruffwashere/status/1960617797278687687' }])).toBe(embed);
     expect(trailerEmbed([{ label: 'trailer', url: 'https://youtube.com/watch?v=1' }])).toBeNull();
     expect(trailerEmbed(undefined)).toBeNull();
-  });
-  it('is the Pulverulents trailer room', () => {
-    const r = ROOMS.find((x) => x.slug === 'pulverulents-trailer')!;
-    expect(r).toMatchObject({ title: 'Pulverulents — trailer', year: 2025, since: '2025-08', status: 'live', medium: 'video', kind: 'embed', src: embed });
-    expect(r.links).toEqual([{ label: 'collection', url: '/c/pulverulents/' }, { label: 'x', url: 'https://x.com/gruffwashere/status/1960617797278687687' }]);
   });
 });
 

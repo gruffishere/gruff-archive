@@ -484,7 +484,7 @@ for (const r of ROOMS) {
   });
 }
 
-for (const slug of ['the-sigils', 'dive-bar', 'pulverulents-trailer']) {
+for (const slug of ['the-sigils', 'dive-bar']) {
   test(`enter on ${slug} inserts a sandboxed iframe`, async ({ page }) => {
     const room = ROOMS.find((r) => r.slug === slug)!;
     // the real third-party page is not needed to check the frame: serve a stub for its address
