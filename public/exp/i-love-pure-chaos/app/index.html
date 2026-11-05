@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ilovepurechaos / glitch art machine by gruff</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="archive-back" href="/experiments/i-love-pure-chaos/" style="display:flex;align-items:center;min-height:44px;padding:0 16px;color:#8a8a8a;font:12px/1.5 monospace;text-decoration:none">← back to the archive</a>
+  <div class="machine">
+    <header>
+      <h1>ilovepurechaos<span class="byline">by gruff</span></h1>
+      <div class="version">v0.4</div>
+    </header>
+
+    <main>
+      <div class="main-grid">
+        <div class="main-left">
+          <div class="display" id="display">
+            <canvas id="preview" width="512" height="512"></canvas>
+            <div id="emptyState" class="empty">DROP OR SELECT AN IMAGE</div>
+          </div>
+
+          <div class="controls">
+            <input type="file" id="upload" accept="image/*" hidden>
+            <button id="uploadBtn" class="btn">SELECT</button>
+            <button id="generateBtn" class="btn" disabled>GENERATE</button>
+            <button id="downloadBtn" class="btn" disabled>DOWNLOAD</button>
+          </div>
+
+          <div class="seed-input">
+            <input type="text" id="seedInput" placeholder="seed (paste to reuse, empty = random)" autocomplete="off" inputmode="numeric">
+          </div>
+
+          <div class="status">
+            <div id="statusLine">READY</div>
+            <div id="progressBar"><div id="progressFill"></div></div>
+          </div>
+
+          <div class="recipe">
+            <div class="label">LAST GENERATION</div>
+            <div id="recipeText">none</div>
+          </div>
+        </div>
+
+        <aside class="operators">
+          <div class="operators-header">
+            <span class="operators-label">OPERATORS</span>
+            <span id="opCount" class="op-count">18/18</span>
+          </div>
+          <div class="operators-list">
+            <button class="op-btn active" data-op="pixel-sort">pixel-sort</button>
+            <button class="op-btn active" data-op="channel-shift">channel-shift</button>
+            <button class="op-btn active" data-op="bit-crush">bit-crush</button>
+            <button class="op-btn active" data-op="jpeg-bomb">jpeg-bomb</button>
+            <button class="op-btn active" data-op="block-shuffle">block-shuffle</button>
+            <button class="op-btn active" data-op="displacement">displacement</button>
+            <button class="op-btn active" data-op="noise">noise</button>
+            <button class="op-btn active" data-op="threshold">threshold</button>
+            <button class="op-btn active" data-op="vhs-tracking">vhs-tracking</button>
+            <button class="op-btn active" data-op="scratch">scratch</button>
+            <button class="op-btn active" data-op="databend">databend</button>
+            <button class="op-btn active" data-op="chromatic-aberration">chrom-aber</button>
+            <button class="op-btn active" data-op="frame-blend">frame-blend</button>
+            <button class="op-btn active" data-op="scramble">scramble</button>
+            <button class="op-btn active" data-op="wave-tear">wave-tear</button>
+            <button class="op-btn active" data-op="rgb-corrupt">rgb-corrupt</button>
+            <button class="op-btn active" data-op="glitch-zoom">glitch-zoom</button>
+            <button class="op-btn active" data-op="palette-corrupt">palette-cor</button>
+          </div>
+          <div class="operators-hint">click to toggle</div>
+
+          <div class="intensities" id="intensitiesPanel" hidden>
+            <div class="intensities-label">INTENSITY (last gen)</div>
+            <div class="intensities-list" id="intensitiesList"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <footer>
+      <div>v0.4 / browser / 18 operators / seeded / loop / intensity</div>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+  <script type="module" src="src/ui.js"></script>
+</body>
+</html>
