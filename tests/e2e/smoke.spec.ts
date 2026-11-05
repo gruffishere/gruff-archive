@@ -3,6 +3,8 @@ import { loadConfig } from '../../indexer/config';
 import { countLabel } from '../../src/lib/collections';
 import { collections, tokensOf } from '../../src/lib/data';
 import { workPath } from '../../src/lib/links';
+import { cardCaption, firstHand } from '../../src/lib/deal';
+import { EMBED_ALLOW, ROOMS, roomPath } from '../../src/lib/rooms';
 import { expect, test, type Page } from '@playwright/test';
 
 export async function checkPage(page: Page, path: string, status = 200) {
@@ -31,7 +33,9 @@ const sections = () => {
   const all = collections();
   const exp = all.filter((c) => c.section === 'experiments');
   const idx = all.filter((c) => c.section === 'index');
-  return { exp, idx, rows: exp.length + idx.length, meta: `${countLabel(idx.length, 'collection')} · ${countLabel(exp.length, 'experiment')}` };
+  // the rooms are experiments too: the index counts them next to the experiment collections
+  const expTotal = exp.length + ROOMS.length;
+  return { exp, idx, expTotal, rows: idx.length + expTotal, meta: `${countLabel(idx.length, 'collection')} · ${countLabel(expTotal, 'experiment')}` };
 };
 
 test('index lists the collections and filters them', async ({ page }) => {
@@ -51,10 +55,10 @@ test('index lists the collections and filters them', async ({ page }) => {
   await page.getByRole('button', { name: 'on-chain' }).click();
   await expect(page.locator('#ledger a.row:visible')).toHaveCount([...s.idx, ...s.exp].filter((c) => c.techniques.includes('on-chain')).length);
   await page.getByRole('button', { name: 'experiments' }).click();
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount(s.exp.length);
-  expect(await page.locator('#ledger a.row:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.code).sort())).toEqual(s.exp.map((c) => c.code).sort());
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount(s.expTotal);
+  expect(await page.locator('#ledger a.row:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.code).sort())).toEqual([...s.exp.map((c) => c.code), ...ROOMS.map((r) => `room:${r.slug}`)].sort());
   await expect(page.locator('#ledger a.row[data-code="OVN"]:visible')).toHaveCount(1);
-  await expect(page.locator('#ledger a.row:visible .exp')).toHaveText(s.exp.map(() => 'exp.'));
+  await expect(page.locator('#ledger a.row:visible .exp')).toHaveText(Array.from({ length: s.expTotal }, () => 'exp.'));
   // geometric: the marker sits on the title's first line, before it
   const eb = (await page.locator('#ledger a.row:visible .exp').first().boundingBox())!;
   const tb = (await page.locator('#ledger a.row:visible .tt').first().boundingBox())!;
@@ -76,12 +80,14 @@ test('time scrubber rewinds the archive', async ({ page }) => {
   await expect(page.locator('#scrub-label')).toContainText('01.2023');
   expect(await page.locator('#ledger a.row:visible').count()).toBeLessThan(sections().rows);
   await expect(page.locator('#ledger a.row[data-code="OVN"]')).toBeHidden();
+  for (const r of ROOMS) await expect(page.locator(`#ledger a.row[data-code="room:${r.slug}"]`)).toBeHidden();
   await expect(page.locator('#exp-count')).toBeHidden();
   await slider.press('End');
   await expect(page.locator('#scrub-label')).toHaveText('archive as of: now');
   await expect(page.locator('#ledger a.row:visible')).toHaveCount(sections().rows);
   await expect(page.locator('.meta-line')).toContainText(sections().meta);
   await expect(page.locator('#ledger a.row[data-code="OVN"]')).toBeVisible();
+  for (const r of ROOMS) await expect(page.locator(`#ledger a.row[data-code="room:${r.slug}"]`)).toBeVisible();
 });
 
 test('collection pages show their works', async ({ page }) => {
@@ -288,7 +294,7 @@ test('about lists the socials and experiments lists the rooms', async ({ page })
     expect(st.before).toBe('"— "');
   }
   await checkPage(page, '/experiments/');
-  await expect(page.locator('.room')).toHaveCount(sections().exp.length);
+  await expect(page.locator('.room')).toHaveCount(sections().expTotal);
 });
 
 test('idle fade and the mobile menu', async ({ page }, info) => {
@@ -422,4 +428,109 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
   await tiles.first().scrollIntoViewIfNeeded();
   await tiles.first().click();
   await expect(page).toHaveURL(/\/w\/[^/]+\/[^/]+\/$/);
+});
+
+// ---- experiment rooms ----
+test('experiments lists the collections and the rooms', async ({ page }) => {
+  await checkPage(page, '/experiments/');
+  await expect(page.locator('.room')).toHaveCount(sections().expTotal);
+  for (const r of ROOMS) await expect(page.locator(`.room[href="${roomPath(r.slug)}"]`)).toContainText(r.status);
+});
+
+test('the index shows each room as an exp. row that links to its page', async ({ page }) => {
+  await checkPage(page, '/');
+  for (const r of ROOMS) {
+    const row = page.locator(`#ledger a.row[data-code="room:${r.slug}"]`);
+    await expect(row).toHaveAttribute('href', roomPath(r.slug));
+    await expect(row).toHaveAttribute('data-filters', 'all experiments');
+    await expect(row.locator('.exp')).toHaveText('exp.');
+    await expect(row.locator('.pl')).toHaveText(r.medium);
+    await expect(row.locator('.wk')).toHaveText('—');
+  }
+  await page.getByRole('button', { name: 'experiments' }).click();
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount(sections().expTotal);
+});
+
+for (const r of ROOMS) {
+  test(`room page: ${r.slug}`, async ({ page }) => {
+    await checkPage(page, roomPath(r.slug));
+    await expect(page.locator('.crumbs a')).toHaveText('← experiments');
+    await expect(page.locator('h1')).toHaveText(r.title);
+    await expect(page.locator('p.k', { hasText: `${r.year} · ${r.medium} · ${r.status}` })).toBeVisible();
+    await expect(page.locator('p.k .lower', { hasText: 'gruff' })).toHaveCount(1);
+    await expect(page.locator('.wall')).toHaveText(r.text);
+    await expect(page.locator('iframe')).toHaveCount(0); // click-to-load: nothing live on a visit
+    if (r.kind === 'deal') await expect(page.getByRole('button', { name: 'deal', exact: true })).toBeVisible();
+    else await expect(page.getByText('enter ↗')).toBeVisible();
+    for (const l of r.links) await expect(page.locator('.clinks a', { hasText: `${l.label} ↗` })).toHaveAttribute('href', l.url);
+  });
+}
+
+for (const slug of ['the-sigils', 'dive-bar']) {
+  test(`enter on ${slug} inserts a sandboxed iframe`, async ({ page }) => {
+    const room = ROOMS.find((r) => r.slug === slug)!;
+    // the real third-party page is not needed to check the frame: serve a stub for its address
+    await page.route(room.src!, (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><p>stub</p>' }));
+    await checkPage(page, roomPath(slug));
+    await page.getByRole('button', { name: 'enter ↗' }).click();
+    const frame = page.locator('iframe');
+    await expect(frame).toHaveCount(1);
+    await expect(frame).toHaveAttribute('src', room.src!);
+    await expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-downloads');
+    await expect(frame).toHaveAttribute('allow', EMBED_ALLOW);
+    await expect(page.getByRole('button', { name: 'enter ↗' })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  });
+}
+
+test('strung deck deals five live cards, seeded the first time', async ({ page }) => {
+  await checkPage(page, roomPath('strung-deck'));
+  await expect(page.locator('canvas')).toHaveCount(0);
+  await page.getByRole('button', { name: 'deal', exact: true }).click();
+  const canvases = page.locator('.hand canvas');
+  await expect(canvases).toHaveCount(5, { timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'deal again' })).toBeEnabled();
+  const hand = firstHand();
+  await expect(page.locator('.hand figcaption')).toHaveText(hand.map(cardCaption));
+  expect(new Set(hand.map((h) => h.deck)).size).toBe(5);
+  // really drawn: every canvas holds painted pixels, and the dance changes them from one frame to the next
+  const snap = () => canvases.evaluateAll((els) => els.map((el) => {
+    const c = el as HTMLCanvasElement;
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    let ink = 0, sum = 0;
+    for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 0) ink++; sum += d[i] + d[i + 1] + d[i + 2]; }
+    return { ink, sum, ratio: c.height / c.width };
+  }));
+  const a = await snap();
+  for (const x of a) { expect(x.ink).toBeGreaterThan(1000); expect(x.ratio).toBeCloseTo(1.4, 2); }
+  await page.waitForTimeout(1500);
+  const b = await snap();
+  expect(b.some((x, i) => x.sum !== a[i].sum)).toBe(true);
+  // the table never scrolls sideways, and the hand wraps on phones
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  const xs = await page.locator('.hand figure').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)));
+  if ((page.viewportSize()?.width ?? 0) < 480) expect(new Set(xs).size).toBe(2);
+  else expect(new Set(xs).size).toBeGreaterThanOrEqual(3);
+  await page.getByRole('button', { name: 'deal again' }).click();
+  await expect(canvases).toHaveCount(5, { timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'deal again' })).toBeEnabled({ timeout: 30_000 });
+  await expect(page.locator('.hand figcaption')).toHaveCount(5);
+});
+
+test('i love pure chaos is hosted as a full page with a way back', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  const res = await page.goto('/exp/i-love-pure-chaos/app/');
+  expect(res?.status()).toBe(200);
+  await expect(page).toHaveTitle(/ilovepurechaos/i);
+  await expect(page.locator('a.archive-back')).toHaveText('← back to the archive');
+  await expect(page.locator('a.archive-back')).toHaveAttribute('href', '/experiments/i-love-pure-chaos/');
+  await expect(page.locator('#uploadBtn')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  expect(errors).toEqual([]);
+  // the room page's enter is a same-tab link to it, and the app is not iframed
+  await page.goto(roomPath('i-love-pure-chaos'));
+  await expect(page.locator('a.poster')).toHaveAttribute('href', '/exp/i-love-pure-chaos/app/');
+  await expect(page.locator('iframe')).toHaveCount(0);
 });

@@ -4,23 +4,28 @@ import { collections, tokensOf } from '../lib/data';
 import { experimentCollections, firstYear } from '../lib/collections';
 import { chooseMedia } from '../lib/media';
 import { collectionPath } from '../lib/links';
-const rooms = experimentCollections(collections()).map((c) => ({ c, cover: tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0] }));
+import { ROOMS, roomPath } from '../lib/rooms';
+// the experiment collections, then the rooms, as one list of quiet cards
+const collectionCards = experimentCollections(collections()).map((c) => {
+  const t = tokensOf(c.slug).find((x) => x.id === c.coverTokenId) ?? tokensOf(c.slug)[0];
+  const m = t ? chooseMedia(t, 'thumb') : null;
+  return { href: collectionPath(c.slug), title: c.title, src: m?.src ?? null, pixelated: !!m?.pixelated, top: c.accession, status: `${firstYear(c)} · ${c.works} works` };
+});
+const roomCards = ROOMS.map((r) => ({ href: roomPath(r.slug), title: r.title, src: r.cover, pixelated: false, top: r.medium, status: `${r.year} · ${r.status}` }));
+const cards = [...collectionCards, ...roomCards];
 ---
 <Base title="experiments — gruff" current="experiments">
   <section class="page">
     <p class="k intro">experiments · rooms where things are still moving</p>
     <div class="rooms">
-      {rooms.map(({ c, cover }) => {
-        const m = cover ? chooseMedia(cover, 'thumb') : null;
-        return (
-          <a class="room" href={collectionPath(c.slug)}>
-            {m?.src ? <img src={m.src} alt={c.title} loading="lazy" class:list={{ px: m.pixelated }} /> : <div class="empty" />}
-            <span class="k">{c.accession}</span>
-            <span class="lead">{c.title}</span>
-            <span class="k">{firstYear(c)} · {c.works} works</span>
-          </a>
-        );
-      })}
+      {cards.map((card) => (
+        <a class="room" href={card.href}>
+          {card.src ? <img src={card.src} alt={card.title} loading="lazy" class:list={{ px: card.pixelated }} /> : <div class="empty" />}
+          <span class="k">{card.top}</span>
+          <span class="lead">{card.title}</span>
+          <span class="k">{card.status}</span>
+        </a>
+      ))}
     </div>
   </section>
 </Base>

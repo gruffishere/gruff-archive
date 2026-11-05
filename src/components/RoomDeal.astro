@@ -1,0 +1,40 @@
+---
+// The STRUNG DECK deal. The renderer is the project's own (public/exp/strung-deck/gen.js in a worker, player.js on
+// canvas); nothing loads until `deal` is pressed. Scripted in src/scripts/room-deal.ts.
+import type { Room } from '../lib/rooms';
+interface Props { room: Room }
+const { room } = Astro.props;
+---
+<div class="deal" data-deal>
+  <div class="table" data-table>
+    <button class="poster" type="button" data-deal-btn>
+      <img src={room.cover} alt="" decoding="async" />
+      <span class="enter">deal</span>
+    </button>
+  </div>
+  <p class="k status" data-status aria-live="polite"></p>
+  <noscript><p class="k">cards are drawn live in the browser; this room needs scripts.</p></noscript>
+</div>
+<style>
+  .deal { margin: 26px 0 0; max-width: 1240px; }
+  .table { background: #0a0a0a; padding: clamp(14px, 3vw, 36px); }
+  .poster { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-transform: inherit; cursor: pointer; }
+  .poster img { width: 100%; height: clamp(220px, 32vw, 340px); object-fit: contain; opacity: .72; transition: opacity .6s ease; }
+  .poster:hover img, .poster:focus-visible img { opacity: 1; }
+  .poster:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+  .enter { display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: #000; color: var(--fg); border: 1px solid var(--dot); }
+  .poster:hover .enter, .poster:focus-visible .enter { background: var(--fg); color: #000; }
+  .status { margin: 10px 0 0; min-height: 18px; }
+  /* everything below is created at runtime */
+  .table :global(.hand) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 14px; justify-items: stretch; }
+  @media (min-width: 480px) { .table :global(.hand) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 900px) { .table :global(.hand) { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px 20px; } }
+  .table :global(.hand figure) { margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .table :global(.hand .slot) { position: relative; aspect-ratio: 1000 / 1400; background: #0f0f0f; border-radius: 10px; }
+  .table :global(.hand canvas) { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+  .table :global(.hand figcaption) { font-size: 11px; line-height: 1.4; color: var(--dim); }
+  .table :global(.again) { display: inline-flex; align-items: center; min-height: 44px; margin-top: 14px; padding: 0 4px; background: none; border: 0; color: var(--fg); font: inherit; text-transform: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: #444; text-underline-offset: 6px; }
+  .table :global(.again:disabled) { color: var(--faint); cursor: default; }
+  @media (prefers-reduced-motion: reduce) { .poster img { transition: none; } }
+</style>
+<script src="../scripts/room-deal.ts"></script>

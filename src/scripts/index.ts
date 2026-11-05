@@ -1,5 +1,5 @@
 import { countLabel } from '../lib/collections';
-import { archiveAt, monthLabel } from '../lib/timeline';
+import { archiveAt, monthLabel, roomVisibleAt } from '../lib/timeline';
 import type { TimelineMonth } from '../../indexer/aggregate/timeline';
 
 const ledger = document.getElementById('ledger');
@@ -43,7 +43,7 @@ for (const r of rows) {
     const price = r.dataset.price ?? '';
     set('pv-price', price);
     for (const id of ['pv-listed-label', 'pv-price']) document.getElementById(id)?.toggleAttribute('hidden', !price);
-    document.getElementById('pv-unlisted')?.toggleAttribute('hidden', !!price);
+    document.getElementById('pv-unlisted')?.toggleAttribute('hidden', !!price || !!r.dataset.since);
     pv.classList.add('on');
   };
   r.addEventListener('mouseenter', show);
@@ -85,7 +85,7 @@ if (host) {
       const i = Number(input.value);
       const isNow = i === months.length - 1;
       const a = archiveAt(tl, months[i]);
-      state.hiddenByTime = new Set(isNow ? [] : rows.map((r) => r.dataset.code ?? '').filter((code) => !(code in a.works)));
+      state.hiddenByTime = new Set(isNow ? [] : rows.filter((r) => (r.dataset.since ? !roomVisibleAt(r.dataset.since, months[i]) : !((r.dataset.code ?? '') in a.works))).map((r) => r.dataset.code ?? ''));
       for (const r of rows) {
         const cell = r.querySelector('[data-works]');
         if (cell) cell.textContent = isNow ? (originalWorks.get(r.dataset.code ?? '') ?? '') : String(a.works[r.dataset.code ?? ''] ?? 0);

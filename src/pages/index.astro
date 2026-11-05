@@ -1,20 +1,23 @@
 ---
 import Base from '../layouts/Base.astro';
 import { collections, latestActivity, meta, timeline, tokensOf } from '../lib/data';
-import { archiveSpan, countLabel, filterTags, firstYear, indexLedger, INDEX_FILTERS } from '../lib/collections';
+import { archiveSpan, countLabel, filterTags, firstYear, INDEX_FILTERS, ledgerCounts, ledgerEntries } from '../lib/collections';
+import { ROOMS, roomFilterTags, roomPath } from '../lib/rooms';
 import { chooseMedia } from '../lib/media';
 import { eventLabel, formatEth, formatStamp } from '../lib/format';
 import { collectionPath, workPath } from '../lib/links';
 
 const all = collections();
-const rows = indexLedger(all).map((c) => {
+const entries = ledgerEntries(all, ROOMS);
+const rows = entries.map((e) => {
+  if (e.kind === 'room') return { room: e.room, c: null, cover: null, preview: e.room.cover, price: null };
+  const c = e.c;
   const cover = tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0];
   const preview = cover ? (chooseMedia(cover, 'large').kind === 'img' && !cover.image?.animated ? chooseMedia(cover, 'large').src : chooseMedia(cover, 'thumb').src) : null;
   const price = cover?.listing ? formatEth(cover.listing.priceWei) : null;
-  return { c, cover, preview, price };
+  return { room: null, c, cover, preview, price };
 });
-const expCount = rows.filter((r) => r.c.section === 'experiments').length;
-const colCount = rows.length - expCount;
+const { collections: colCount, experiments: expCount } = ledgerCounts(entries);
 const m = meta();
 const now = new Date(m.lastInventory);
 const latest = latestActivity()[0];
@@ -35,7 +38,16 @@ const months = timeline().map((t) => t.month);
       <div>
         <div class="row head f" aria-hidden="true"><span class="no">no.</span><span class="ti">title</span><span class="pl">platform</span><span class="yr">year</span><span class="wk">works</span></div>
         <div id="ledger">
-          {rows.map(({ c, cover, preview, price }) => (
+          {rows.map(({ room, c, cover, preview, price }) => room ? (
+            <a class="row" href={roomPath(room.slug)} data-code={`room:${room.slug}`} data-since={room.since} data-exp="true" data-filters={roomFilterTags().join(' ')} data-preview={preview ?? ''} data-title={room.title} data-year={String(room.year)} data-meta={room.status} data-price="">
+              <img class="th" src={room.cover} alt="" loading="lazy" />
+              <span class="k no">—</span>
+              <span class="lead ti"><span class="exp">exp.</span><span class="tt">{room.title}</span></span>
+              <span class="k pl">{room.medium}</span>
+              <span class="k yr">{room.year}</span>
+              <span class="m wk">—</span>
+            </a>
+          ) : c && (
             <a class="row" href={collectionPath(c.slug)} data-code={c.code} data-exp={c.section === 'experiments' ? 'true' : undefined} data-filters={filterTags(c).join(' ')} data-preview={preview ?? ''} data-title={c.title} data-year={firstYear(c)} data-meta={`${c.accession} · ${c.standard === 'erc1155' ? `${c.pieces} pieces` : `${c.works} works`}`} data-price={price ?? ''}>
               {cover && preview ? <img class="th" src={chooseMedia(cover, 'thumb').src ?? preview} alt="" loading="lazy" /> : <span class="th" aria-hidden="true"></span>}
               <span class="k no">{c.accession}</span>
