@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { DEALT_DECKS, FIRST_HAND_SEED, cardCaption, cardSeed, dealHand, firstHand, mulberry32 } from '../../src/lib/deal';
+import { DEALT_DECKS, FIRST_HAND_SEED, cardCaption, cardSeed, dealHand, firstHand, mulberry32, settlePending } from '../../src/lib/deal';
 
 describe('the deal', () => {
   it('names the 20 decks of the project', () => {
@@ -57,4 +57,16 @@ describe('the ported generator', () => {
       expect(m.machine!.caustic).toBeTruthy();
     }
   }, 60_000);
+});
+
+describe('a failed worker', () => {
+  it('settles every pending render with the error and empties the map', () => {
+    const pending = new Map<number, (r: { error: string }) => void>();
+    const got: string[] = [];
+    for (const id of [1, 2, 3]) pending.set(id, (r) => got.push(`${id}:${r.error}`));
+    expect(settlePending(pending, 'worker')).toBe(3);
+    expect(got).toEqual(['1:worker', '2:worker', '3:worker']);
+    expect(pending.size).toBe(0);
+    expect(settlePending(pending, 'again')).toBe(0);
+  });
 });

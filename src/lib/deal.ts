@@ -74,3 +74,11 @@ export const rankLabel = (rank: number) => (rank === 1 ? 'A' : String(rank));
 export const suitGlyph = (suit: Suit) => SUITS.find((s) => s.key === suit)!.glyph;
 /** Ledger caption; the page uppercases it. */
 export const cardCaption = (c: Card) => `${rankLabel(c.rank)} ${suitGlyph(c.suit)} · ${c.name}`;
+
+/** Settles every pending render with an error (a crashed worker never answers) and empties the map. Returns how many were settled. */
+export function settlePending(pending: Map<number, (r: { error: string }) => void>, error: string): number {
+  const waiting = [...pending.values()];
+  pending.clear();
+  for (const done of waiting) done({ error });
+  return waiting.length;
+}

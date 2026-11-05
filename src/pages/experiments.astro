@@ -20,7 +20,7 @@ const cards = [...collectionCards, ...roomCards];
     <div class="rooms">
       {cards.map((card) => (
         <a class="room" href={card.href}>
-          {card.src ? <img src={card.src} alt={card.title} loading="lazy" class:list={{ px: card.pixelated }} /> : <div class="empty" />}
+          {card.src ? <img src={card.src} alt="" loading="lazy" class:list={{ px: card.pixelated }} /> : <div class="empty" />}
           <span class="k">{card.top}</span>
           <span class="lead">{card.title}</span>
           <span class="k">{card.status}</span>

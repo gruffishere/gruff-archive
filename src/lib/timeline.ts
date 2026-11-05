@@ -11,4 +11,4 @@ export function archiveAt(timeline: TimelineMonth[], month: string): ArchiveStat
 
 /** A room (not in the on-chain timeline) is on the wall from its `since` month on. Both are YYYY-MM. */
 export const roomVisibleAt = (since: string, month: string) => month >= since;
-export const monthLabel =(month: string) => `${month.slice(5, 7)}.${month.slice(0, 4)}`;
+export const monthLabel = (month: string) => `${month.slice(5, 7)}.${month.slice(0, 4)}`;

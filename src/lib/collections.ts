@@ -40,7 +40,7 @@ export function ledgerCounts(entries: LedgerEntry[]) {
   const experiments = entries.filter((e) => e.kind === 'room' || e.c.section === 'experiments').length;
   return { collections: entries.length - experiments, experiments };
 }
-export const countLabel= (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+export const countLabel = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
 export const experimentCollections = (all: CollectionOut[]) => all.filter((c) => c.section === 'experiments').sort(byFirstMintDesc);
 export const firstYear = (c: CollectionOut) => c.firstMint?.slice(0, 4) ?? '—';
 export function archiveSpan(all: CollectionOut[]): string {

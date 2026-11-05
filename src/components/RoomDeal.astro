@@ -34,7 +34,8 @@ const { room } = Astro.props;
   .table :global(.hand canvas) { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
   .table :global(.hand figcaption) { font-size: 11px; line-height: 1.4; color: var(--dim); }
   .table :global(.again) { display: inline-flex; align-items: center; min-height: 44px; margin-top: 14px; padding: 0 4px; background: none; border: 0; color: var(--fg); font: inherit; text-transform: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: #444; text-underline-offset: 6px; }
-  .table :global(.again:disabled) { color: var(--faint); cursor: default; }
+  .table :global(.again[aria-disabled='true']) { color: var(--faint); cursor: default; }
+  .table :global(.hand .slot.failed) { display: flex; align-items: center; justify-content: center; padding: 8px; font-size: 10px; text-align: center; color: var(--faint); }
   @media (prefers-reduced-motion: reduce) { .poster img { transition: none; } }
 </style>
 <script src="../scripts/room-deal.ts"></script>

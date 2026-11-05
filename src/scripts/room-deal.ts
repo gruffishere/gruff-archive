@@ -1,4 +1,4 @@
-import { cardCaption, dealHand, firstHand, mulberry32, type Card } from '../lib/deal';
+import { cardCaption, dealHand, firstHand, mulberry32, settlePending, type Card } from '../lib/deal';
 
 // player.js (the project's canvas player) is a classic script that defines runMachine as a global.
 interface Machine { loop: number }
@@ -24,15 +24,24 @@ const pending = new Map<number, (m: { machine?: Machine; error?: string }) => vo
 
 function startWorker() {
   if (worker) return worker;
-  worker = new Worker(GEN);
-  worker.onmessage = (e: MessageEvent<{ id: number; machine?: Machine; error?: string }>) => {
+  const w = new Worker(GEN);
+  worker = w;
+  // a worker that dies never answers: settle everything waiting on it so the deal ends instead of hanging
+  w.onerror = () => resetWorker('worker');
+  w.onmessageerror = () => resetWorker('worker');
+  w.onmessage = (e: MessageEvent<{ id: number; machine?: Machine; error?: string }>) => {
     const done = pending.get(e.data.id);
     if (done) {
       pending.delete(e.data.id);
       done(e.data);
     }
   };
-  return worker;
+  return w;
+}
+function resetWorker(error: string) {
+  worker?.terminate();
+  worker = null;
+  settlePending(pending, error);
 }
 const render = (c: Card) =>
   new Promise<{ machine?: Machine; error?: string }>((res) => {
@@ -73,6 +82,7 @@ const seen = new IntersectionObserver((entries) => {
 
 function clearHand() {
   generation++;
+  resetWorker('superseded'); // a re-deal must not keep rendering the previous hand
   if (raf) cancelAnimationFrame(raf);
   raf = 0;
   for (const l of live) {
@@ -105,9 +115,13 @@ async function deal() {
   again.type = 'button';
   again.className = 'again';
   again.textContent = 'deal again';
-  again.disabled = true;
-  again.addEventListener('click', () => void deal());
+  // aria-disabled (not disabled) so the button can take focus right away: the deal button it replaces is gone
+  again.setAttribute('aria-disabled', 'true');
+  again.addEventListener('click', () => {
+    if (again.getAttribute('aria-disabled') !== 'true') void deal();
+  });
   table.replaceChildren(grid, again);
+  again.focus();
   if (status) status.textContent = 'dealing…';
 
   try {
@@ -115,14 +129,29 @@ async function deal() {
     const run = (window as unknown as { runMachine: RunMachine }).runMachine;
     const width = Math.max(120, Math.round(slots[0].getBoundingClientRect().width));
     const rendered = hand.map((c) => render(c));
+    let failed = 0;
+    const fail = (slot: HTMLElement) => {
+      failed++;
+      slot.classList.add('failed');
+      slot.textContent = 'could not be drawn';
+    };
     for (const [i, c] of hand.entries()) {
       const out = await rendered[i];
       if (mine !== generation) return;
-      if (out.error || !out.machine) continue;
+      if (out.error || !out.machine) {
+        fail(slots[i]);
+        continue;
+      }
       const canvas = document.createElement('canvas');
       canvas.setAttribute('role', 'img');
       canvas.setAttribute('aria-label', `${cardCaption(c)}, caustic dance`);
-      const player = await run(canvas, out.machine, { width, play: false });
+      let player: Player;
+      try {
+        player = await run(canvas, out.machine, { width, play: false });
+      } catch {
+        if (mine === generation) fail(slots[i]);
+        continue;
+      }
       if (mine !== generation) {
         player.stop();
         return;
@@ -134,13 +163,13 @@ async function deal() {
       seen.observe(slots[i]);
     }
     if (mine !== generation) return;
-    again.disabled = false;
-    if (status) status.textContent = '';
+    again.setAttribute('aria-disabled', 'false');
+    if (status) status.textContent = failed === hand.length ? 'the deck could not be dealt — try again' : failed ? 'some cards could not be drawn — deal again' : '';
     wake();
   } catch {
     if (mine === generation) {
-      again.disabled = false;
-      if (status) status.textContent = 'the cards could not be drawn here.';
+      again.setAttribute('aria-disabled', 'false');
+      if (status) status.textContent = 'the deck could not be dealt — try again';
     }
   }
 }
