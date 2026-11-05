@@ -60,6 +60,97 @@ Requirements:
    - Unit-test the config parse.
 6. Do not run the real inventory. The controller re-runs it, which re-downloads the 673 Gruffters images at full size.
 
-### Task B: experiment rooms (after the artist answers)
+### Task B: experiment rooms
 
-Dive bar, STRUNG DECK, I LOVE PURE CHAOS and The Sigils as rooms on /experiments and as `exp.` rows on the index. Details follow the artist's choices.
+The artist's choices (2026-11-05), all the recommended options:
+- STRUNG DECK as a "deal a hand" game;
+- I LOVE PURE CHAOS hosted on our own site;
+- maybe's dive bar live inside its room.
+
+The Sigils is live and is linked and embedded.
+
+**Files:**
+- `src/lib/rooms.ts` (room data and pure helpers)
+- `src/pages/experiments.astro`
+- `src/pages/experiments/[slug].astro`
+- `src/pages/index.astro` and `src/scripts/index.ts` (rooms as `exp.` rows)
+- `src/lib/collections.ts` (`countLabel` counts rooms as experiments)
+- `public/exp/<slug>/…` (site-owned assets, never `public/media/`)
+- tests
+
+Requirements:
+
+1. **Room data** (`src/lib/rooms.ts`). A typed list. Each room has:
+   - `slug`, `title`, `year`, `since: 'YYYY-MM'` (for the scrubber);
+   - `status`: one of `in voting`, `work in progress`, `live`;
+   - `medium`: the index platform column, e.g. `6529 memes`, `verse`, `web`;
+   - `text`: 1–3 short English sentences, factual, with no promises of future features;
+   - `links: { label, url }[]`;
+   - `cover`: an image under `public/exp/<slug>/`;
+   - `kind`: `embed` (iframe URL), `app` (a page hosted on this site) or `deal`.
+
+   The rooms and copy below may be lightly tightened, but must not gain new claims.
+
+   - `dive-bar`
+     - title `maybe's dive bar`; year 2026; since `2026-10`; status `in voting`; medium `6529 memes`.
+     - text: "A living 3D bar for maybe's wave in 6529 Brain, made as a Meme card. The TV channels, the patrons and the drinks come from live 6529 data. Submitted to The Memes; in voting."
+     - kind `embed` → `https://arweave.net/74ONRA98QkYQHCq7OyDjoDvTRYP7exdASAMFWjhZd5U` (the submitted single-file entry on Arweave). The friend-test mirror is `https://dive-bar.gruffdesign.workers.dev`; use it only if the Arweave entry does not load in Playwright, and say so.
+     - links: `arweave ↗`.
+   - `strung-deck`
+     - title `STRUNG DECK`; year 2026; since `2026-10`; status `work in progress`; medium `verse`.
+     - text: "Playing cards in string art: nails around the pips, thread woven inside them, bands strung between. Every card moves in one slow dance."
+     - kind `deal` (see 4).
+     - Public copy must not mention games, supply numbers or future changes (artist's rule).
+   - `i-love-pure-chaos`
+     - title `I LOVE PURE CHAOS`; year 2026; since `2026-05`; status `live`; medium `web`.
+     - text: "A glitch art machine. Feed it an image; it mills the bits through eighteen operators and returns an animated GIF. Same seed, same image, same GIF."
+     - kind `app` → the copy hosted on this site (see 5).
+   - `the-sigils`
+     - title `The Sigils`; year 2026; since `2026-04`; status `live`; medium `web`.
+     - text: "Turns a 6529 identity into a living orbital sigil: TDH, boosts, memes and more each add their own ring, bead or moon."
+     - kind `embed` → `https://gruffishere.github.io/the-sigils/`; links `open ↗`.
+     - Cover: copy `C:\Users\gruff\soul-archive\cover.png` into `public/exp/the-sigils/cover.png`, converted to webp if large.
+2. **/experiments.** Lists the experiment collections (OVVN, FACETS) as now, plus the rooms. Each item is a quiet card: cover, title, status line, and a link to its page.
+3. **Room pages `/experiments/<slug>/`.**
+   - Content, in order:
+     - crumb `← experiments`;
+     - title;
+     - meta line `<span class="lower">gruff</span>, <year> · <medium> · <status>`;
+     - the text, links as one quiet line;
+     - then the live piece.
+   - Embeds are **click-to-load**: a poster (the cover) with one `enter ↗` button replaces itself with the iframe, so 3D and apps never load on page visit. On phones the iframe fills the width at a sensible aspect, and there is no horizontal scroll.
+   - Third-party iframes (arweave.net, github.io) get `sandbox="allow-scripts allow-same-origin allow-popups allow-downloads"` and `allow="autoplay; fullscreen"`. Those origins are not ours, so `allow-same-origin` is safe here. Note this explicitly in code.
+   - Never put `allow-same-origin` on an iframe whose src is this site's own origin, except the app in 5, which is the artist's own code; see there.
+4. **STRUNG DECK "deal".**
+   - Port the browser renderer and player from `C:\Users\gruff\OneDrive\Masaüstü\FULL BODY CLONEX\EVOLVED GRIFTERS\Ordinals\UPC\exp\deck\`:
+     - `lab/string26.cjs` (or the version the decks page `page/decks/template.html` / `build.cjs` actually ships);
+     - `page/player.js`.
+   - Turn them into site-owned files: `public/exp/strung-deck/*.js`, or `src/scripts/` if they can be bundled. Read `_STATE.md` (START HERE block) for which generator is current.
+   - A `deal` button places 5 face-up cards on a dark table:
+     - random distinct cards from the 20 built decks;
+     - each card rendered live with the caustic dance, the artist's favourite motion;
+     - a small caption per card in the ledger style, e.g. `7 ♥ · MARKED CARDS`, with deck names from the project.
+   - `deal again` re-deals. The default deal is seeded (the same first hand on every load), so the page is stable for screenshots. Later deals are random.
+   - Phones: cards wrap, 2–3 per row.
+   - Performance: at most 5 cards animate at once, and animation pauses when the tab is hidden or the cards are off-screen.
+   - If porting the renderer is not feasible within this task, stop and report NEEDS_CONTEXT with what is missing. Don't fake the art with static images.
+5. **I LOVE PURE CHAOS hosted.**
+   - Copy the static app from `C:\Users\gruff\glitch-machine\` into `public/exp/i-love-pure-chaos/app/`: `index.html`, `studio.html`, the CSS, `src/`. Skip `server.js` and `notes/`.
+   - Fix relative paths if needed. It loads `gif.js` from jsDelivr, which is allowed.
+   - The room page's `enter ↗` opens the app in the same tab as a full page (`/exp/i-love-pure-chaos/app/`), with a small `← back to the archive` link injected at the top of the app's own page (minimal, no restyle).
+   - The app is not iframed.
+6. **Index rows.**
+   - Rooms appear in the index ledger as `exp.` rows, ordered by `since` with the rest.
+   - Columns: platform shows `medium`; works shows `—`; the link goes to the room page.
+   - `data-filters` include `experiments`. The scrubber hides a room before its `since` month.
+   - The counts line counts rooms as experiments: today `15 collections · 6 experiments` (after Task A moves FACETS: OVVN, FACETS and 4 rooms). Use `countLabel`.
+   - The hover preview shows the room cover.
+7. **Tests.**
+   - Unit: room data validity (https links, `since` format, cover file exists), index ordering with rooms, `countLabel`, the deal picks (5 distinct, seeded first hand).
+   - e2e:
+     - /experiments lists 6 items;
+     - each room page loads and shows `enter ↗`;
+     - clicking `enter ↗` on the-sigils inserts a sandboxed iframe with the right src;
+     - the strung-deck deal shows 5 canvases;
+     - `/exp/i-love-pure-chaos/app/` loads without console errors;
+     - the index `experiments` chip shows 6 rows.
