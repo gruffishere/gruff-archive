@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActivityRow, KeeperOut } from '../../src/lib/data';
 import { formatStamp } from '../../src/lib/format';
-import { collapseMints, summary, summaryMonths, toDisplayRows } from '../../src/lib/activity';
+import { collapseMints, latestByKind, summary, summaryMonths, toDisplayRows } from '../../src/lib/activity';
 
 export const row = (p: Partial<ActivityRow>): ActivityRow => ({
   id: 'e1', kind: 'sale', contract: '0xc', tokenId: '1', quantity: 1, from: '0x00000000000000000000000000000000000000a1', to: '0x00000000000000000000000000000000000000b2',
@@ -85,5 +85,22 @@ describe('summaryMonths', () => {
     const now = new Date('2026-11-05T12:00:00.000Z');
     const sale = row({ priceWei: '7', timestamp: '2026-10-10T00:00:00.000Z' });
     expect(summary([sale], [], now)).toEqual({ sales: 1, volumeWei: '7', newKeepers: 0 });
+  });
+});
+
+describe('latestByKind', () => {
+  const months = [
+    [row({ id: 'a', kind: 'mint', timestamp: '2026-09-30T00:00:00.000Z' }), row({ id: 'b', kind: 'transfer', timestamp: '2026-09-29T00:00:00.000Z' }), row({ id: 'c', kind: 'mint', timestamp: '2026-09-28T00:00:00.000Z' })],
+    [row({ id: 'd', kind: 'mint', timestamp: '2026-08-30T00:00:00.000Z' }), row({ id: 'e', kind: 'sale', timestamp: '2026-08-29T00:00:00.000Z' })],
+  ];
+  it('takes the newest rows of one kind across months', () => {
+    expect(latestByKind(months, 'mint', 2).map((r) => r.id)).toEqual(['a', 'c']);
+    expect(latestByKind(months, 'mint', 10).map((r) => r.id)).toEqual(['a', 'c', 'd']);
+  });
+  it('sorts newest first even when months are given oldest first', () => {
+    expect(latestByKind([...months].reverse(), 'mint', 3).map((r) => r.id)).toEqual(['a', 'c', 'd']);
+  });
+  it('is empty when the kind never happened', () => {
+    expect(latestByKind(months, 'listed', 5)).toEqual([]);
   });
 });

@@ -91,9 +91,18 @@ if (host) {
       }
       const label = document.getElementById('scrub-label');
       if (label) label.textContent = isNow ? 'archive as of: now' : `archive as of: ${monthLabel(months[i])}`;
-      const visible = rows.filter((r) => !state.hiddenByTime.has(r.dataset.code ?? '')).length;
-      const cc = document.getElementById('count-collections');
-      if (cc) cc.textContent = String(visible);
+      const shown = rows.filter((r) => !state.hiddenByTime.has(r.dataset.code ?? ''));
+      const nExp = shown.filter((r) => r.dataset.exp === 'true').length;
+      const nCol = shown.length - nExp;
+      const setCount = (id: string, wordId: string, n: number, one: string, many: string) => {
+        const c = document.getElementById(id);
+        if (c) c.textContent = String(n);
+        const w = document.getElementById(wordId);
+        if (w) w.textContent = n === 1 ? one : many;
+      };
+      setCount('count-collections', 'word-collections', nCol, 'collection', 'collections');
+      setCount('count-experiments', 'word-experiments', nExp, 'experiment', 'experiments');
+      document.getElementById('exp-count')?.toggleAttribute('hidden', nExp === 0);
       const ck = document.getElementById('count-keepers');
       if (ck) ck.textContent = isNow ? originalKeepers : String(a.holders);
       input.setAttribute('aria-valuetext', isNow ? 'now' : monthLabel(months[i]));

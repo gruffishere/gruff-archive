@@ -43,6 +43,15 @@ export function toDisplayRows(rows: ActivityRow[]): DisplayRow[] {
 
 export const KIND_FILTERS = ['all', 'sale', 'mint', 'transfer', 'listed'] as const;
 
+/** The newest `n` rows of one kind across all month files (any order in, newest first out). */
+export function latestByKind(months: ActivityRow[][], kind: EventKind, n: number): ActivityRow[] {
+  return months
+    .flat()
+    .filter((r) => r.kind === kind)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, n);
+}
+
 export function collapseMints(rows: ActivityRow[]): DisplayRow[] {
   const byId = new Map(rows.map((r) => [r.id, r]));
   const out: DisplayRow[] = [];

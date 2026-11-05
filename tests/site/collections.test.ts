@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut } from '../../src/lib/data';
-import { archiveSpan, experimentCollections, filterTags, firstYear, indexCollections, inCirculation, layoutOf, workNav } from '../../src/lib/collections';
+import { archiveSpan, countLabel, experimentCollections, filterTags, firstYear, indexLedger, indexCollections, inCirculation, layoutOf, workNav } from '../../src/lib/collections';
 
 const c = (p: Partial<CollectionOut>) => ({ code: 'X', slug: 'x', title: 'X', contract: '0x', standard: 'erc721', platform: 'manifold', platformUrl: null, section: 'index', techniques: ['illustration'], wallText: null, accession: 'GRF.23.X', firstMint: '2023-01-01T00:00:00.000Z', lastMint: null, works: 3, pieces: 3, holders: 1, floorWei: null, coverTokenId: '1', staleSince: null, ...p }) as CollectionOut;
 
@@ -15,6 +15,17 @@ describe('collections', () => {
     expect(indexCollections(all).map((x) => x.code)).toEqual(['B', 'A']);
     expect(experimentCollections(all).map((x) => x.code)).toEqual(['E']);
     expect(archiveSpan(all)).toBe('2023—2026');
+  });
+  it('puts experiments in the ledger, tagged, ordered with the rest', () => {
+    const all = [c({ code: 'A', firstMint: '2023-01-01T00:00:00.000Z' }), c({ code: 'E', section: 'experiments', firstMint: '2026-09-01T00:00:00.000Z', techniques: ['generative'] }), c({ code: 'B', firstMint: '2025-01-01T00:00:00.000Z' })];
+    expect(indexLedger(all).map((x) => x.code)).toEqual(['E', 'B', 'A']);
+    expect(filterTags(all[1])).toEqual(['all', 'generative', 'experiments']);
+    expect(filterTags(all[0])).not.toContain('experiments');
+  });
+  it('counts with correct singular and plural', () => {
+    expect(countLabel(1, 'experiment')).toBe('1 experiment');
+    expect(countLabel(2, 'experiment')).toBe('2 experiments');
+    expect(countLabel(16, 'collection')).toBe('16 collections');
   });
   it('picks a layout and a year', () => {
     expect(layoutOf(c({ works: 12 }))).toBe('column');

@@ -1,13 +1,14 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
 
-export type IndexFilter = 'all' | 'one-of-one' | 'editions' | 'generative' | 'on-chain';
+export type IndexFilter = 'all' | 'one-of-one' | 'editions' | 'generative' | 'on-chain' | 'experiments';
 export const INDEX_FILTERS: { key: IndexFilter; label: string }[] = [
   { key: 'all', label: 'all' },
   { key: 'one-of-one', label: '1/1' },
   { key: 'editions', label: 'editions' },
   { key: 'generative', label: 'generative' },
   { key: 'on-chain', label: 'on-chain' },
+  { key: 'experiments', label: 'experiments' },
 ];
 
 export function filterTags(c: CollectionOut): IndexFilter[] {
@@ -17,11 +18,15 @@ export function filterTags(c: CollectionOut): IndexFilter[] {
   else if (!generative) tags.push('one-of-one');
   if (generative) tags.push('generative');
   if (c.techniques.includes('on-chain')) tags.push('on-chain');
+  if (c.section === 'experiments') tags.push('experiments');
   return tags;
 }
 
 const byFirstMintDesc = (a: CollectionOut, b: CollectionOut) => (b.firstMint ?? '').localeCompare(a.firstMint ?? '');
 export const indexCollections = (all: CollectionOut[]) => all.filter((c) => c.section === 'index').sort(byFirstMintDesc);
+/** The index ledger: the collections plus the experiments, newest first. */
+export const indexLedger = (all: CollectionOut[]) => all.filter((c) => c.section === 'index' || c.section === 'experiments').sort(byFirstMintDesc);
+export const countLabel = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
 export const experimentCollections = (all: CollectionOut[]) => all.filter((c) => c.section === 'experiments').sort(byFirstMintDesc);
 export const firstYear = (c: CollectionOut) => c.firstMint?.slice(0, 4) ?? '—';
 export function archiveSpan(all: CollectionOut[]): string {

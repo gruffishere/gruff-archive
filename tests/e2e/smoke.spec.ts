@@ -24,7 +24,8 @@ test('404 is a closed room', async ({ page }) => {
 test('index lists the collections and filters them', async ({ page }) => {
   await checkPage(page, '/');
   const rows = page.locator('#ledger a.row');
-  await expect(rows).toHaveCount(16);
+  await expect(rows).toHaveCount(17);
+  await expect(page.locator('.meta-line')).toContainText('16 collections · 1 experiment · ');
   const wm = (await page.locator('header .wm').boundingBox())!;
   const tag = (await page.locator('header .tagline').boundingBox())!;
   expect(tag.y).toBeGreaterThanOrEqual(wm.y + wm.height - 2);
@@ -34,7 +35,12 @@ test('index lists the collections and filters them', async ({ page }) => {
   };
   expect(Math.abs((await yearEdge('PHG')) - (await yearEdge('FCT')))).toBeLessThanOrEqual(1);
   await page.getByRole('button', { name: 'on-chain' }).click();
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount(2);
+  // on-chain: 2 collections plus the OVVN experiment
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount(3);
+  await page.getByRole('button', { name: 'experiments' }).click();
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount(1);
+  await expect(page.locator('#ledger a.row:visible')).toHaveAttribute('data-code', 'OVN');
+  await expect(page.locator('#ledger a.row:visible .exp')).toHaveText('exp.');
   await expect(page.getByText(/last inventory:/i)).toBeVisible();
 });
 
@@ -49,10 +55,14 @@ test('time scrubber rewinds the archive', async ({ page }) => {
   await slider.focus();
   await slider.press('Home');
   await expect(page.locator('#scrub-label')).toContainText('01.2023');
-  expect(await page.locator('#ledger a.row:visible').count()).toBeLessThan(16);
+  expect(await page.locator('#ledger a.row:visible').count()).toBeLessThan(17);
+  await expect(page.locator('#ledger a.row[data-code="OVN"]')).toBeHidden();
+  await expect(page.locator('#exp-count')).toBeHidden();
   await slider.press('End');
   await expect(page.locator('#scrub-label')).toHaveText('archive as of: now');
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount(16);
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount(17);
+  await expect(page.locator('.meta-line')).toContainText('16 collections · 1 experiment');
+  await expect(page.locator('#ledger a.row[data-code="OVN"]')).toBeVisible();
 });
 
 test('collection pages show their works', async ({ page }) => {
@@ -119,9 +129,12 @@ test('activity ledger lists events and filters them', async ({ page }) => {
   expect(await page.locator('.act .ev').count()).toBeGreaterThan(0);
   await expect(page.locator('.sum .k', { hasText: 'last inventory' }).locator('span')).toHaveText(/\d+(m|h|d) ago/);
   await page.getByRole('button', { name: 'mints' }).click();
+  expect(await page.locator('.act .ev:visible').count()).toBeGreaterThan(0);
   for (const kind of await page.locator('.act .ev:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.kind))) expect(kind).toBe('mint');
   await page.getByRole('button', { name: 'sales' }).click();
+  // no sales exist in the history yet (they arrive with the keyed OpenSea inventory): the empty line shows only because the whole history has none
   if ((await page.locator('.act .ev:visible').count()) === 0) await expect(page.locator('.empty')).toBeVisible();
+  else await expect(page.locator('.empty')).toBeHidden();
   await page.getByRole('button', { name: 'all', exact: true }).click();
   await expect(page.locator('.empty')).toBeHidden();
   const firstMonth = page.locator('.months a').first();
