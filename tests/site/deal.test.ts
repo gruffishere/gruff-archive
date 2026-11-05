@@ -42,7 +42,7 @@ describe('the deal', () => {
 
 describe('the ported generator', () => {
   // runs the site-owned worker file in a sandbox: every deck of the list must exist in it and draw a dance machine
-  const src = readFileSync('public/exp/strung-deck/gen.js', 'utf8');
+  const src = readFileSync('public/exp/playing-cards/gen.js', 'utf8');
   const sent: { id: number; error?: string; machine?: { loop: number; objs: unknown[]; caustic: unknown } }[] = [];
   const self: { onmessage?: (e: { data: unknown }) => void; postMessage: (m: never) => void } = { postMessage: (m) => sent.push(m) };
   runInNewContext(src, { self, Math, Object, Array, Float64Array, Int32Array, Uint8Array, Map, Set, JSON, console });

@@ -1,4 +1,4 @@
-// The STRUNG DECK deal: which five cards a hand holds. Pure; the renderer lives in public/exp/strung-deck/.
+// The Playing Cards deal: which five cards a hand holds. Pure; the renderer lives in public/exp/playing-cards/.
 export const DEALT_DECKS = [
   { key: 'deadmans', name: "Dead Man's Hand" },
   { key: 'faro', name: 'Faro' },

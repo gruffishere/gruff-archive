@@ -6,8 +6,8 @@ interface Player { drawAt(t: number): void; stop(): void }
 type RunMachine = (canvas: HTMLCanvasElement, machine: Machine, opt: { width: number; play: boolean }) => Promise<Player>;
 interface Live { player: Player; slot: HTMLElement; visible: boolean; t0: number }
 
-const GEN = '/exp/strung-deck/gen.js';
-const PLAYER = '/exp/strung-deck/player.js';
+const GEN = '/exp/playing-cards/gen.js';
+const PLAYER = '/exp/playing-cards/player.js';
 const root = document.querySelector<HTMLElement>('[data-deal]');
 const table = root?.querySelector<HTMLElement>('[data-table]');
 const status = root?.querySelector<HTMLElement>('[data-status]');

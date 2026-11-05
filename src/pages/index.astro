@@ -43,7 +43,7 @@ const months = timeline().map((t) => t.month);
               <img class="th" src={room.cover} alt="" loading="lazy" />
               <span class="k no">—</span>
               <span class="lead ti"><span class="exp">exp.</span><span class="tt">{room.title}</span></span>
-              <span class="k pl">{room.medium}</span>
+              <span class="k pl">{room.medium ?? '—'}</span>
               <span class="k yr">{room.year}</span>
               <span class="m wk">—</span>
             </a>

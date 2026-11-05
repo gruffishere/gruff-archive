@@ -1,0 +1,74 @@
+[
+  {
+    "deck": "marked",
+    "suit": "hearts",
+    "rank": 7,
+    "seed": 499409436
+  },
+  {
+    "deck": "deadmans",
+    "suit": "spades",
+    "rank": 8,
+    "seed": 697360191
+  },
+  {
+    "deck": "cold",
+    "suit": "clubs",
+    "rank": 2,
+    "seed": 1456819177
+  },
+  {
+    "deck": "double",
+    "suit": "diamonds",
+    "rank": 5,
+    "seed": 1909979675
+  },
+  {
+    "deck": "king",
+    "suit": "hearts",
+    "rank": 9,
+    "seed": 2007692699
+  },
+  {
+    "deck": "wild",
+    "suit": "spades",
+    "rank": 6,
+    "seed": 1530200586
+  },
+  {
+    "deck": "solitaire",
+    "suit": "clubs",
+    "rank": 10,
+    "seed": 59396052
+  },
+  {
+    "deck": "river",
+    "suit": "diamonds",
+    "rank": 4,
+    "seed": 1951997735
+  },
+  {
+    "deck": "poker",
+    "suit": "hearts",
+    "rank": 1,
+    "seed": 1670798823
+  },
+  {
+    "deck": "royal",
+    "suit": "spades",
+    "rank": 3,
+    "seed": 1074217370
+  },
+  {
+    "deck": "bridge",
+    "suit": "clubs",
+    "rank": 7,
+    "seed": 20950207
+  },
+  {
+    "deck": "crazy",
+    "suit": "diamonds",
+    "rank": 6,
+    "seed": 1555024690
+  }
+]

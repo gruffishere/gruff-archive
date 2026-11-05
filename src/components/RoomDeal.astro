@@ -1,9 +1,13 @@
 ---
-// The STRUNG DECK deal. The renderer is the project's own (public/exp/strung-deck/gen.js in a worker, player.js on
+// The Playing Cards deal. The renderer is the project's own (public/exp/playing-cards/gen.js in a worker, player.js on
 // canvas); nothing loads until `deal` is pressed. Scripted in src/scripts/room-deal.ts.
 import type { Room } from '../lib/rooms';
-interface Props { room: Room }
-const { room } = Astro.props;
+import { DEALT_DECKS, SUITS, rankLabel } from '../lib/deal';
+import samples from '../lib/sample-cards.json';
+interface Props { room: Room; gallery?: boolean }
+const { room, gallery = false } = Astro.props;
+const nameOf = (key: string) => DEALT_DECKS.find((d) => d.key === key)?.name ?? key;
+const glyphOf = (suit: string) => SUITS.find((s) => s.key === suit)?.glyph ?? '';
 ---
 <div class="deal" data-deal>
   <div class="table" data-table>
@@ -14,6 +18,16 @@ const { room } = Astro.props;
   </div>
   <p class="k status" data-status aria-live="polite"></p>
   <noscript><p class="k">cards are drawn live in the browser; this room needs scripts.</p></noscript>
+  {gallery && (
+    <ul class="cards" aria-label="sample cards">
+      {samples.map((c) => (
+        <li>
+          <img src={`/exp/${room.slug}/cards/${c.deck}-${c.suit}-${c.rank}.webp`} alt="" loading="lazy" decoding="async" width="600" height="840" />
+          <span class="k">{rankLabel(c.rank)} {glyphOf(c.suit)} · {nameOf(c.deck)}</span>
+        </li>
+      ))}
+    </ul>
+  )}
 </div>
 <style>
   .deal { margin: 26px 0 0; max-width: 1240px; }
@@ -25,6 +39,11 @@ const { room } = Astro.props;
   .enter { display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; background: #000; color: var(--fg); border: 1px solid var(--dot); }
   .poster:hover .enter, .poster:focus-visible .enter { background: var(--fg); color: #000; }
   .status { margin: 10px 0 0; min-height: 18px; }
+  .cards { list-style: none; margin: 44px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 14px; }
+  @media (min-width: 560px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 900px) { .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 30px 20px; } }
+  .cards li { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .cards img { width: 100%; height: auto; aspect-ratio: 5 / 7; background: #0a0a0a; border-radius: 10px; }
   /* everything below is created at runtime */
   .table :global(.hand) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 14px; justify-items: stretch; }
   @media (min-width: 480px) { .table :global(.hand) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

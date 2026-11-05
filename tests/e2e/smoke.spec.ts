@@ -4,7 +4,7 @@ import { countLabel } from '../../src/lib/collections';
 import { collections, tokensOf } from '../../src/lib/data';
 import { workPath } from '../../src/lib/links';
 import { cardCaption, firstHand } from '../../src/lib/deal';
-import { EMBED_ALLOW, ROOMS, roomPath } from '../../src/lib/rooms';
+import { EMBED_ALLOW, ROOMS, roomMeta, roomPath } from '../../src/lib/rooms';
 import { expect, test, type Page } from '@playwright/test';
 
 export async function checkPage(page: Page, path: string, status = 200) {
@@ -462,7 +462,7 @@ test('the index shows each room as an exp. row that links to its page', async ({
     await expect(row).toHaveAttribute('href', roomPath(r.slug));
     await expect(row).toHaveAttribute('data-filters', 'all experiments');
     await expect(row.locator('.exp')).toHaveText('exp.');
-    await expect(row.locator('.pl')).toHaveText(r.medium);
+    await expect(row.locator('.pl')).toHaveText(r.medium ?? '—');
     await expect(row.locator('.wk')).toHaveText('—');
   }
   await page.getByRole('button', { name: 'experiments' }).click();
@@ -474,7 +474,7 @@ for (const r of ROOMS) {
     await checkPage(page, roomPath(r.slug));
     await expect(page.locator('.crumbs a')).toHaveText('← experiments');
     await expect(page.locator('h1')).toHaveText(r.title);
-    await expect(page.locator('p.k', { hasText: `${r.year} · ${r.medium} · ${r.status}` })).toBeVisible();
+    await expect(page.locator('p.k', { hasText: roomMeta(r).join(' · ') })).toBeVisible();
     await expect(page.locator('p.k .lower', { hasText: 'gruff' })).toHaveCount(1);
     await expect(page.locator('.wall')).toHaveText(r.text);
     await expect(page.locator('iframe')).toHaveCount(0); // click-to-load: nothing live on a visit
@@ -502,7 +502,7 @@ for (const slug of ['the-sigils', 'dive-bar', 'pulverulents-trailer']) {
 }
 
 test('strung deck deals five live cards, seeded the first time', async ({ page }) => {
-  await checkPage(page, roomPath('strung-deck'));
+  await checkPage(page, roomPath('playing-cards'));
   await expect(page.locator('canvas')).toHaveCount(0);
   await page.getByRole('button', { name: 'deal', exact: true }).click();
   const canvases = page.locator('.hand canvas');
@@ -570,4 +570,42 @@ test('pulverulents shows the trailer block on its collection page', async ({ pag
   await expect(frame).toHaveAttribute('src', /^https:\/\/platform\.twitter\.com\/embed\/Tweet\.html\?id=1960617797278687687/);
   await expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-downloads');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+// ---- room details (dates, Playing Cards gallery, dive bar stills and commentary) ----
+test('room meta lines show the artist\'s dates', async ({ page }) => {
+  await checkPage(page, roomPath('the-sigils'));
+  await expect(page.locator('p.k', { hasText: '23.04.2026 · web/6529 · live' })).toBeVisible();
+  await expect(page.locator('.clinks a')).toHaveText(['open ↗', 'x ↗']);
+  await checkPage(page, roomPath('i-love-pure-chaos'));
+  await expect(page.locator('p.k', { hasText: '18.05.2026 · web · live' })).toBeVisible();
+  await expect(page.locator('.clinks a')).toHaveText(['x ↗']);
+});
+
+test('Playing Cards: title, no medium, a 12 card gallery, and the old address redirects', async ({ page }) => {
+  await checkPage(page, roomPath('playing-cards'));
+  await expect(page.locator('h1')).toHaveText('Playing Cards');
+  await expect(page.locator('p.k', { hasText: '2026 · work in progress' })).toBeVisible();
+  const imgs = page.locator('.cards img');
+  await expect(imgs).toHaveCount(12);
+  await expect(page.locator('.cards li').first()).toContainText('7 ♥ · Marked Cards');
+  await page.locator('.cards').scrollIntoViewIfNeeded();
+  await expect.poll(() => imgs.evaluateAll((els) => els.filter((e) => (e as HTMLImageElement).complete && (e as HTMLImageElement).naturalWidth > 0).length)).toBe(12);
+  const per = async () => new Set(await page.locator('.cards li').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)))).size;
+  const w = page.viewportSize()?.width ?? 0;
+  expect(await per()).toBe(w >= 900 ? 4 : w >= 560 ? 3 : 2);
+  const res = await page.goto('/experiments/strung-deck/');
+  expect(res?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/experiments\/playing-cards\/$/);
+});
+
+test('the dive bar room shows stills and the artist\'s commentary', async ({ page }) => {
+  await checkPage(page, roomPath('dive-bar'));
+  await expect(page.locator('h1')).toHaveText('6529 Dive Bar');
+  await expect(page.locator('.stills img')).toHaveCount(5);
+  await expect(page.locator('.commentary .label')).toHaveText(['What you can do:', 'How it works:']);
+  await expect(page.locator('.commentary li')).toHaveCount(6);
+  await expect(page.locator('.commentary .sign')).toContainText('gruff');
+  expect(await page.locator('.commentary p:not(.head):not(.label)').first().evaluate((el) => getComputedStyle(el).textTransform)).toBe('none');
+  await expect(page.locator('.commentary')).toContainText("Maybe's dive bar is the 6529 Brain wave");
 });

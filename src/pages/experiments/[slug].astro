@@ -3,22 +3,36 @@ import Base from '../../layouts/Base.astro';
 import CollectionLinks from '../../components/CollectionLinks.astro';
 import RoomEmbed from '../../components/RoomEmbed.astro';
 import RoomDeal from '../../components/RoomDeal.astro';
-import { ROOMS, type Room } from '../../lib/rooms';
+import { readFileSync } from 'node:fs';
+import { ROOMS, roomMeta, type Room } from '../../lib/rooms';
+import { parseCommentary } from '../../lib/commentary';
 
 export function getStaticPaths() {
   return ROOMS.map((room) => ({ params: { slug: room.slug }, props: { room } }));
 }
 const { room } = Astro.props as { room: Room };
+const commentary = room.commentary ? parseCommentary(readFileSync(`src/content/${room.commentary}`, 'utf8')) : [];
 ---
 <Base title={`${room.title} — gruff`} description={room.text} current="experiments">
   <section class="page">
     <p class="k crumbs"><a class="back" href="/experiments/">← experiments</a></p>
     <h1 class="title">{room.title}</h1>
-    <p class="k"><span class="lower">gruff</span>, {room.year} · {room.medium} · {room.status}</p>
+    <p class="k"><span class="lower">gruff</span>, {roomMeta(room).join(' · ')}</p>
     <p class="lower wall">{room.text}</p>
     <CollectionLinks links={room.links} />
     {room.kind === 'embed' && <RoomEmbed src={room.src!} title={room.title} cover={room.cover} />}
-    {room.kind === 'deal' && <RoomDeal room={room} />}
+    {room.kind === 'deal' && <RoomDeal room={room} gallery={room.gallery} />}
+    {room.stills && room.stills.length > 0 && (
+      <ul class="stills" aria-label="stills">
+        {room.stills.map((s) => (<li><img src={s.src} alt={s.caption} loading="lazy" decoding="async" /><span class="k">{s.caption}</span></li>))}
+      </ul>
+    )}
+    {commentary.length > 0 && (
+      <article class="commentary" aria-label="artwork commentary">
+        <p class="k head">artwork commentary</p>
+        {commentary.map((b) => b.type === 'label' ? <p class="k label">{b.text}</p> : b.type === 'list' ? <ul>{b.items.map((i) => <li>{i}</li>)}</ul> : b.type === 'sign' ? <p class="sign">— <span class="lower">{b.text}</span></p> : <p>{b.text}</p>)}
+      </article>
+    )}
     {room.kind === 'app' && (
       <div class="app">
         <a class="poster" href={room.src}>
@@ -34,6 +48,16 @@ const { room } = Astro.props as { room: Room };
   .back { display: inline-flex; align-items: center; min-height: 44px; }
   .title { font: 500 20px/1.2 var(--mono); margin: 0 0 4px; }
   .wall { max-width: 640px; color: #aaa; line-height: 1.7; margin: 16px 0; }
+  .stills { list-style: none; margin: 34px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 18px; max-width: 1100px; }
+  .stills li { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .stills img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #050505; }
+  .commentary { max-width: 640px; margin: 56px 0 0; text-transform: none; font-size: 13px; line-height: 1.8; color: #bbb; }
+  .commentary p { margin: 0 0 16px; }
+  .commentary .head { text-transform: uppercase; margin-bottom: 22px; }
+  .commentary .label { text-transform: uppercase; margin: 28px 0 10px; color: var(--dim); }
+  .commentary ul { margin: 0 0 16px; padding-left: 18px; }
+  .commentary li { margin-bottom: 8px; }
+  .commentary .sign { color: var(--fg); margin-top: 28px; }
   .app { margin: 26px 0 0; max-width: 1100px; }
   .poster { position: relative; display: block; background: #050505; aspect-ratio: 16 / 10; overflow: hidden; }
   .poster img { width: 100%; height: 100%; object-fit: cover; opacity: .72; transition: opacity .6s ease; }

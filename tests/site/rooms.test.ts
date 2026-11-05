@@ -1,8 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { parseCommentary } from '../../src/lib/commentary';
+import samples from '../../src/lib/sample-cards.json';
+import { DEALT_DECKS, cardSeed } from '../../src/lib/deal';
 import type { CollectionOut } from '../../src/lib/data';
-import { EMBED_ALLOW, ROOMS, ROOM_STATUSES, embedSandbox, roomFilterTags, roomPath, trailerEmbed, xEmbedUrl } from '../../src/lib/rooms';
+import { EMBED_ALLOW, ROOMS, ROOM_STATUSES, defineRoom, embedSandbox, formatRoomDate, roomMeta, roomFilterTags, roomPath, trailerEmbed, xEmbedUrl } from '../../src/lib/rooms';
 import { countLabel, ledgerCounts, ledgerEntries } from '../../src/lib/collections';
 import { roomVisibleAt } from '../../src/lib/timeline';
 
@@ -10,13 +14,14 @@ const c = (p: Partial<CollectionOut>) => ({ code: 'X', slug: 'x', title: 'X', se
 
 describe('rooms data', () => {
   it('has the five rooms', () => {
-    expect(ROOMS.map((r) => r.slug)).toEqual(['dive-bar', 'strung-deck', 'i-love-pure-chaos', 'the-sigils', 'pulverulents-trailer']);
+    expect(ROOMS.map((r) => r.slug)).toEqual(['dive-bar', 'playing-cards', 'i-love-pure-chaos', 'the-sigils', 'pulverulents-trailer']);
   });
   it('is valid for every room', () => {
     for (const r of ROOMS) {
       expect(r.slug).toMatch(/^[a-z0-9-]+$/);
       expect(r.since).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/);
       expect(r.since.slice(0, 4)).toBe(String(r.year));
+      if (r.date) expect(r.since).toBe(r.date.slice(0, 7));
       expect(ROOM_STATUSES).toContain(r.status);
       expect(['embed', 'app', 'deal']).toContain(r.kind);
       expect(r.text.length).toBeGreaterThan(20);
@@ -35,7 +40,7 @@ describe('rooms data', () => {
     }
   });
   it('keeps the public copy free of games, supply and future changes', () => {
-    const strung = ROOMS.find((r) => r.slug === 'strung-deck')!;
+    const strung = ROOMS.find((r) => r.slug === 'playing-cards')!;
     expect(strung.text).not.toMatch(/\b(game|play|supply|mint|will|soon|later|coming)\b/i);
     for (const r of ROOMS) expect(r.text).not.toMatch(/\b(soon|coming|will be|roadmap)\b/i);
   });
@@ -46,6 +51,78 @@ describe('rooms data', () => {
   it('builds paths and filter tags', () => {
     expect(roomPath('dive-bar')).toBe('/experiments/dive-bar/');
     expect(roomFilterTags()).toEqual(['all', 'experiments']);
+  });
+});
+
+describe('room dates and the optional medium', () => {
+  const base = { slug: 'x', title: 'X', status: 'live' as const, text: 'x', links: [], cover: '/exp/x/c.webp', kind: 'embed' as const };
+  it('formats a date as DD.MM.YYYY', () => {
+    expect(formatRoomDate('2026-04-23')).toBe('23.04.2026');
+    expect(formatRoomDate('2026-05-08')).toBe('08.05.2026');
+  });
+  it('derives since and year from the date', () => {
+    expect(defineRoom({ ...base, date: '2026-05-18' })).toMatchObject({ since: '2026-05', year: 2026 });
+    expect(defineRoom({ ...base, year: 2025, since: '2025-08' })).toMatchObject({ since: '2025-08', year: 2025 });
+    expect(() => defineRoom({ ...base, date: '2026-5-18' })).toThrow();
+    expect(() => defineRoom({ ...base })).toThrow();
+  });
+  it('builds the meta line: the date or the year, the medium when there is one, the status', () => {
+    expect(roomMeta({ date: '2026-04-23', year: 2026, medium: 'web/6529', status: 'live' })).toEqual(['23.04.2026', 'web/6529', 'live']);
+    expect(roomMeta({ year: 2026, status: 'work in progress' })).toEqual(['2026', 'work in progress']);
+  });
+  it("has the artist's dates, mediums and links", () => {
+    const by = (s: string) => ROOMS.find((r) => r.slug === s)!;
+    expect(by('the-sigils')).toMatchObject({ date: '2026-04-23', since: '2026-04', medium: 'web/6529' });
+    expect(by('the-sigils').links.map((l) => l.label)).toEqual(['open', 'x']);
+    expect(by('the-sigils').links[1].url).toBe('https://x.com/gruffwashere/status/2047328362209698117');
+    expect(by('i-love-pure-chaos')).toMatchObject({ date: '2026-05-18', medium: 'web' });
+    expect(by('i-love-pure-chaos').links).toEqual([{ label: 'x', url: 'https://x.com/gruffwashere/status/2056167344854995181' }]);
+    expect(by('playing-cards')).toMatchObject({ title: 'Playing Cards', kind: 'deal' });
+    expect(by('playing-cards').medium).toBeUndefined();
+    expect(by('dive-bar')).toMatchObject({ title: '6529 Dive Bar', medium: '6529', status: 'in voting' });
+    expect(by('dive-bar').text).toBe('Real regulars on the stools saying what they really wrote, maybe behind the bar, live 6529 on the TV and a recipe for every Meme card in the book. Darts, beer pong and a napkin for your requests, in a bar that stays open as long as the Brain keeps talking.');
+  });
+  it('has stills that exist under the room folder, and the commentary file', () => {
+    const bar = ROOMS.find((r) => r.slug === 'dive-bar')!;
+    expect(bar.stills!.length).toBeGreaterThanOrEqual(3);
+    for (const s of bar.stills!) {
+      expect(s.src).toMatch(/^\/exp\/dive-bar\/stills\//);
+      expect(existsSync(join('public', s.src))).toBe(true);
+    }
+    expect(existsSync(join('src/content', bar.commentary!))).toBe(true);
+  });
+});
+
+describe('the dive bar commentary', () => {
+  const md = readFileSync('src/content/dive-bar-commentary.md', 'utf8');
+  const blocks = parseCommentary(md);
+  it('keeps the two labels, the list and the signature', () => {
+    expect(blocks.filter((b) => b.type === 'label').map((b) => (b as { text: string }).text)).toEqual(['What you can do:', 'How it works:']);
+    expect(blocks.find((b) => b.type === 'list')).toMatchObject({ items: expect.any(Array) });
+    expect((blocks.find((b) => b.type === 'list') as { items: string[] }).items).toHaveLength(6);
+    expect(blocks.at(-1)).toEqual({ type: 'sign', text: 'gruff' });
+  });
+  it('never rewrites a word: the blocks put back together hold every word of the file', () => {
+    const words = (t: string) => t.replace(/^- /gm, '').split(/\s+/).filter(Boolean).join(' ');
+    const joined = blocks.map((b) => (b.type === 'list' ? b.items.join(' ') : b.text)).join(' ');
+    expect(words(joined)).toBe(words(md));
+    expect(md).toContain("Maybe's dive bar is the 6529 Brain wave");
+  });
+});
+
+describe('the Playing Cards sample gallery', () => {
+  it('has 12 distinct cards from distinct decks, with the generator seed, and a file each', () => {
+    expect(samples).toHaveLength(12);
+    expect(new Set(samples.map((c) => `${c.deck}|${c.suit}|${c.rank}`)).size).toBe(12);
+    expect(new Set(samples.map((c) => c.deck)).size).toBe(12);
+    expect(new Set(samples.map((c) => c.suit)).size).toBe(4);
+    for (const c of samples) {
+      expect(DEALT_DECKS.some((d) => d.key === c.deck)).toBe(true);
+      expect(c.rank).toBeGreaterThanOrEqual(1);
+      expect(c.rank).toBeLessThanOrEqual(10);
+      expect(c.seed).toBe(cardSeed(c.deck, c.suit, c.rank));
+      expect(existsSync(join('public/exp/playing-cards/cards', `${c.deck}-${c.suit}-${c.rank}.webp`))).toBe(true);
+    }
   });
 });
 

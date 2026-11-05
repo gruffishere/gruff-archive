@@ -1,12 +1,12 @@
 // One-off port of the STRUNG DECK renderer into site-owned files. Never modifies the source folder.
 //   node scripts/port-strung-deck.cjs [path to the deck project]
-// Writes public/exp/strung-deck/gen.js (core + deck + string26 packed as a worker, the way the project's own
+// Writes public/exp/playing-cards/gen.js (core + deck + string26 packed as a worker, the way the project's own
 // decks page packs them: page/decks/build.cjs), player.js (page/player.js, the canvas dance player) and cover.webp.
 process.env.CARD_EXPORT = '1';
 const fs = require('fs');
 const path = require('path');
 const DECK = process.argv[2] || 'C:/Users/gruff/OneDrive/Masaüstü/FULL BODY CLONEX/EVOLVED GRIFTERS/Ordinals/UPC/exp/deck';
-const out = path.join(__dirname, '..', 'public', 'exp', 'strung-deck');
+const out = path.join(__dirname, '..', 'public', 'exp', 'playing-cards');
 const lab = path.join(DECK, 'lab');
 const S = require(path.join(lab, 'string26.cjs'));
 fs.mkdirSync(out, { recursive: true });
@@ -36,4 +36,13 @@ const sharp = require('sharp');
     .composite([{ input: png, left: Math.round((1600 - width) / 2), top: Math.round((1000 - height) / 2) }])
     .webp({ quality: 82 }).toFile(path.join(out, 'cover.webp'));
   console.log('cover.webp written');
+
+  // the gallery: still sample cards from src/lib/sample-cards.json, drawn by the same generator
+  const samples = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'lib', 'sample-cards.json'), 'utf8'));
+  fs.mkdirSync(path.join(out, 'cards'), { recursive: true });
+  for (const c of samples) {
+    const r = S.render(c.seed, { deck: c.deck, rank: c.rank, suit: c.suit, eyes: true });
+    await sharp(Buffer.from(r.svg), { density: 96 }).resize({ height: 840 }).webp({ quality: 84 }).toFile(path.join(out, 'cards', c.deck + '-' + c.suit + '-' + c.rank + '.webp'));
+  }
+  console.log(samples.length + ' sample cards written');
 })();
