@@ -23,6 +23,8 @@ export interface Room {
   src?: string;
 }
 
+const PULVERULENTS_POST = 'https://x.com/gruffwashere/status/1960617797278687687';
+
 export const ROOMS: Room[] = [
   {
     slug: 'dive-bar',
@@ -75,7 +77,37 @@ export const ROOMS: Room[] = [
     kind: 'embed',
     src: 'https://gruffishere.github.io/the-sigils/',
   },
+  {
+    slug: 'pulverulents-trailer',
+    title: 'Pulverulents — trailer',
+    year: 2025,
+    since: '2025-08',
+    status: 'live',
+    medium: 'video',
+    text: 'The trailer for Pulverulents.',
+    links: [
+      { label: 'collection', url: '/c/pulverulents/' },
+      { label: 'x', url: PULVERULENTS_POST },
+    ],
+    cover: '/exp/pulverulents-trailer/cover.webp',
+    kind: 'embed',
+    src: xEmbedUrl(PULVERULENTS_POST)!,
+  },
 ];
+
+/** X's own embed player for a post, for an x.com or twitter.com status URL; anything else is null. */
+export function xEmbedUrl(statusUrl: string): string | null {
+  let u: URL;
+  try { u = new URL(statusUrl); } catch { return null; }
+  if (u.protocol !== 'https:' || !['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com'].includes(u.hostname)) return null;
+  const m = u.pathname.match(/^\/[A-Za-z0-9_]{1,15}\/status\/(\d{5,25})\/?$/);
+  return m ? `https://platform.twitter.com/embed/Tweet.html?id=${m[1]}&theme=dark&dnt=true` : null;
+}
+/** The embeddable trailer of a collection: its `trailer` link, when that is an X post. */
+export const trailerEmbed = (links: { label: string; url: string }[] | undefined): string | null => {
+  const l = (links ?? []).find((x) => x.label === 'trailer');
+  return l ? xEmbedUrl(l.url) : null;
+};
 
 export const roomPath = (slug: string) => `/experiments/${slug}/`;
 /** Rooms are experiments and nothing else: not editions, not one-of-one, not generative, not on-chain. */

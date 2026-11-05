@@ -17,3 +17,12 @@ export function chooseMedia(t: TokenOut, size: 'thumb' | 'large'): MediaChoice {
   const src = size === 'thumb' ? img.thumb : (img.large ?? img.remote ?? img.thumb);
   return src ? { kind: 'img', src, pixelated: false } : NONE;
 }
+
+/** A still for a poster: the large rendition when it is a plain image, otherwise the thumb; never an animated file. */
+export function stillSrc(t: TokenOut | undefined): string | null {
+  if (!t) return null;
+  const large = chooseMedia(t, 'large');
+  if (large.kind === 'img' && !t.image?.animated && large.src && !/\.gif$/i.test(large.src)) return large.src;
+  const thumb = chooseMedia(t, 'thumb');
+  return thumb.kind === 'img' ? thumb.src : null;
+}

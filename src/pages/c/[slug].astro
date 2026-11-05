@@ -8,6 +8,9 @@ import { workPath } from '../../lib/links';
 import { chooseMedia } from '../../lib/media';
 import { mintingText } from '../../lib/label';
 import CollectionLinks from '../../components/CollectionLinks.astro';
+import RoomEmbed from '../../components/RoomEmbed.astro';
+import { trailerEmbed } from '../../lib/rooms';
+import { stillSrc } from '../../lib/media';
 
 export function getStaticPaths() {
   return collections().map((c) => ({ params: { slug: c.slug }, props: { c } }));
@@ -15,6 +18,8 @@ export function getStaticPaths() {
 const { c } = Astro.props as { c: CollectionOut };
 const tokens = tokensOf(c.slug).filter(inCirculation);
 const layout = layoutOf(c);
+const trailer = trailerEmbed(c.links);
+const trailerCover = trailer ? stillSrc(tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0]) : null;
 const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYear(c)}–${c.lastMint.slice(0, 4)}` : firstYear(c);
 ---
 <Base title={`${c.title} — gruff`} description={c.wallText ?? `${c.title} by gruff, ${span}.`} current={c.section === 'experiments' ? 'experiments' : 'index'}>
@@ -30,6 +35,7 @@ const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYea
       <div class="lr"><span class="l">keepers</span><span class="v">{c.holders}</span></div>
       {c.floorWei && <div class="lr"><span class="l">floor</span><span class="v">{formatEth(c.floorWei)}</span></div>}
     </div>
+    {trailer && <div class="trailer"><RoomEmbed src={trailer} title={`${c.title} trailer`} cover={trailerCover} label="play ↗" /></div>}
     <div class:list={['works', layout]}>
       {tokens.map((t, i) => (
         <a class="work" href={workPath(c.slug, t.id)}>
@@ -51,6 +57,7 @@ const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYea
 </Base>
 <style>
   .mnote { color: var(--muted); }
+  .trailer { max-width: 900px; margin-bottom: 34px; }
   .crumbs { margin: 26px 0 8px; }
   .back { display: inline-flex; align-items: center; min-height: 44px; }
   .title { font: 500 20px/1.2 var(--mono); margin: 0 0 4px; }

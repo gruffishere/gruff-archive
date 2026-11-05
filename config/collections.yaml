@@ -24,5 +24,5 @@ collections:
   # Added 2026-11-05 at the artist's request (all on the artist's own contracts; techniques provisional until the techniques session).
   - { code: LSO, slug: last-selfie-or, title: "Last Selfie or?", contract: "0x3ad11c41438ec881751b931c798ef201eea81ee6", standard: erc721, platform: foundation, section: index, techniques: [illustration] }
   - { code: RES, slug: resonance, title: "RESONANCE", contract: "0x346410e2c65400b448909c45a3c234e00eafdaa2", standard: erc721, platform: foundation, section: index, techniques: [illustration] }
-  - { code: PUL, slug: pulverulents, title: "Pulverulents", contract: "0x29457b2b50d3da1ca6c356f82212f65d283c09e6", standard: erc721, platform: transient, section: index, techniques: [illustration, glitch], supplyCap: 69 }
+  - { code: PUL, slug: pulverulents, title: "Pulverulents", contract: "0x29457b2b50d3da1ca6c356f82212f65d283c09e6", standard: erc721, platform: transient, section: index, techniques: [illustration, glitch], supplyCap: 69, links: [{ label: trailer, url: "https://x.com/gruffwashere/status/1960617797278687687" }] }
   - { code: SOA, slug: the-school-of-art, title: "The School of Art", contract: "0xe25af4d68841c62ba5a0bc8ccc6fe33580612f9d", standard: erc1155, platform: manifold, section: index, techniques: [illustration] }

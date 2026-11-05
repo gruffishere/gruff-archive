@@ -17,7 +17,7 @@ const { room } = Astro.props as { room: Room };
     <p class="k"><span class="lower">gruff</span>, {room.year} · {room.medium} · {room.status}</p>
     <p class="lower wall">{room.text}</p>
     <CollectionLinks links={room.links} />
-    {room.kind === 'embed' && <RoomEmbed room={room} />}
+    {room.kind === 'embed' && <RoomEmbed src={room.src!} title={room.title} cover={room.cover} />}
     {room.kind === 'deal' && <RoomDeal room={room} />}
     {room.kind === 'app' && (
       <div class="app">

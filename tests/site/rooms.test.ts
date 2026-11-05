@@ -2,15 +2,15 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut } from '../../src/lib/data';
-import { EMBED_ALLOW, ROOMS, ROOM_STATUSES, embedSandbox, roomFilterTags, roomPath } from '../../src/lib/rooms';
+import { EMBED_ALLOW, ROOMS, ROOM_STATUSES, embedSandbox, roomFilterTags, roomPath, trailerEmbed, xEmbedUrl } from '../../src/lib/rooms';
 import { countLabel, ledgerCounts, ledgerEntries } from '../../src/lib/collections';
 import { roomVisibleAt } from '../../src/lib/timeline';
 
 const c = (p: Partial<CollectionOut>) => ({ code: 'X', slug: 'x', title: 'X', section: 'index', techniques: [], firstMint: '2023-01-01T00:00:00.000Z', works: 3, ...p }) as CollectionOut;
 
 describe('rooms data', () => {
-  it('has the four rooms', () => {
-    expect(ROOMS.map((r) => r.slug)).toEqual(['dive-bar', 'strung-deck', 'i-love-pure-chaos', 'the-sigils']);
+  it('has the five rooms', () => {
+    expect(ROOMS.map((r) => r.slug)).toEqual(['dive-bar', 'strung-deck', 'i-love-pure-chaos', 'the-sigils', 'pulverulents-trailer']);
   });
   it('is valid for every room', () => {
     for (const r of ROOMS) {
@@ -25,7 +25,7 @@ describe('rooms data', () => {
       expect(existsSync(join('public', r.cover))).toBe(true);
       for (const l of r.links) {
         expect(l.label.length).toBeGreaterThan(0);
-        expect(l.url).toMatch(/^https:\/\//);
+        expect(l.url).toMatch(/^(https:\/\/|\/c\/[a-z0-9-]+\/$)/);
       }
       if (r.kind === 'embed') expect(r.src).toMatch(/^https:\/\//);
       if (r.kind === 'app') {
@@ -46,6 +46,34 @@ describe('rooms data', () => {
   it('builds paths and filter tags', () => {
     expect(roomPath('dive-bar')).toBe('/experiments/dive-bar/');
     expect(roomFilterTags()).toEqual(['all', 'experiments']);
+  });
+});
+
+describe('xEmbedUrl', () => {
+  const embed = 'https://platform.twitter.com/embed/Tweet.html?id=1960617797278687687&theme=dark&dnt=true';
+  it('turns x.com and twitter.com status URLs into the embed player', () => {
+    expect(xEmbedUrl('https://x.com/gruffwashere/status/1960617797278687687')).toBe(embed);
+    expect(xEmbedUrl('https://twitter.com/gruffwashere/status/1960617797278687687?s=20')).toBe(embed);
+    expect(xEmbedUrl('https://www.x.com/gruffwashere/status/1960617797278687687/')).toBe(embed);
+  });
+  it('returns null for anything else', () => {
+    expect(xEmbedUrl('https://x.com/gruffwashere')).toBeNull();
+    expect(xEmbedUrl('https://example.com/a/status/1960617797278687687')).toBeNull();
+    expect(xEmbedUrl('https://x.com.evil.com/a/status/1960617797278687687')).toBeNull();
+    expect(xEmbedUrl('http://x.com/a/status/1960617797278687687')).toBeNull();
+    expect(xEmbedUrl('https://x.com/a/status/abc')).toBeNull();
+    expect(xEmbedUrl('not a url')).toBeNull();
+  });
+  it('finds the trailer among collection links', () => {
+    expect(trailerEmbed([{ label: 'site', url: 'https://x.com/a/status/1960617797278687687' }])).toBeNull();
+    expect(trailerEmbed([{ label: 'trailer', url: 'https://x.com/gruffwashere/status/1960617797278687687' }])).toBe(embed);
+    expect(trailerEmbed([{ label: 'trailer', url: 'https://youtube.com/watch?v=1' }])).toBeNull();
+    expect(trailerEmbed(undefined)).toBeNull();
+  });
+  it('is the Pulverulents trailer room', () => {
+    const r = ROOMS.find((x) => x.slug === 'pulverulents-trailer')!;
+    expect(r).toMatchObject({ title: 'Pulverulents — trailer', year: 2025, since: '2025-08', status: 'live', medium: 'video', kind: 'embed', src: embed });
+    expect(r.links).toEqual([{ label: 'collection', url: '/c/pulverulents/' }, { label: 'x', url: 'https://x.com/gruffwashere/status/1960617797278687687' }]);
   });
 });
 
@@ -75,7 +103,7 @@ describe('the ledger with rooms', () => {
     const all = [c({ code: 'A' }), c({ code: 'B' }), c({ code: 'E', section: 'experiments' })];
     const n = ledgerCounts(ledgerEntries(all, ROOMS));
     expect(n).toEqual({ collections: 2, experiments: 1 + ROOMS.length });
-    expect(`${countLabel(n.collections, 'collection')} · ${countLabel(n.experiments, 'experiment')}`).toBe('2 collections · 5 experiments');
+    expect(`${countLabel(n.collections, 'collection')} · ${countLabel(n.experiments, 'experiment')}`).toBe(`2 collections · ${1 + ROOMS.length} experiments`);
   });
 });
 

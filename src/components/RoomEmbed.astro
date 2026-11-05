@@ -1,16 +1,16 @@
 ---
 // Click-to-load: the poster (the room's cover) and one `enter ↗` button. Only the click creates the iframe,
 // so a 3D scene or an app never loads on a page visit. The iframe is built in src/scripts/room-embed.ts.
-import type { Room } from '../lib/rooms';
-interface Props { room: Room }
-const { room } = Astro.props;
+// Used by the room pages and by the Pulverulents trailer block on its collection page.
+interface Props { src: string; title: string; cover?: string | null; label?: string }
+const { src, title, cover = null, label = 'enter ↗' } = Astro.props;
 ---
-<div class="embed" data-embed data-src={room.src} data-title={room.title}>
+<div class="embed" data-embed data-src={src} data-title={title}>
   <button class="poster" type="button">
-    <img src={room.cover} alt="" decoding="async" />
-    <span class="enter">enter ↗</span>
+    {cover && <img src={cover} alt="" decoding="async" />}
+    <span class="enter">{label}</span>
   </button>
-  <noscript><a class="hit" href={room.src} target="_blank" rel="noopener">enter ↗</a></noscript>
+  <noscript><a class="hit" href={src} target="_blank" rel="noopener">{label}</a></noscript>
 </div>
 <style>
   .embed { margin: 26px 0 0; max-width: 1100px; }

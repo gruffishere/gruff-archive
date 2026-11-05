@@ -4,7 +4,7 @@ const links = Astro.props.links ?? [];
 ---
 {links.length > 0 && (
   <p class="k clinks">
-    {links.map((l, i) => (<>{i > 0 && ' · '}<a class="hit" href={l.url} target="_blank" rel="noopener">{l.label} ↗</a></>))}
+    {links.map((l, i) => (<>{i > 0 && ' · '}<a class="hit" href={l.url} {...(l.url.startsWith('/') ? {} : { target: '_blank', rel: 'noopener' })}>{l.label} ↗</a></>))}
   </p>
 )}
 <style>

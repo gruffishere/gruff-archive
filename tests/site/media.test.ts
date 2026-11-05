@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenOut } from '../../src/lib/data';
-import { chooseMedia } from '../../src/lib/media';
+import { chooseMedia, stillSrc } from '../../src/lib/media';
 
 const t = (p: Partial<TokenOut>) => ({ image: null, animation: null, ...p }) as TokenOut;
 
@@ -30,5 +30,18 @@ describe('chooseMedia', () => {
   it('never returns an img without a src', () => {
     expect(chooseMedia(t({ image: { kind: 'svg', thumb: null, large: null, file: null } }), 'thumb')).toEqual({ kind: 'none', src: null, pixelated: false });
     expect(chooseMedia(t({ image: { kind: 'image', thumb: null, large: null, file: null } }), 'large')).toEqual({ kind: 'none', src: null, pixelated: false });
+  });
+});
+
+describe('stillSrc', () => {
+  it('uses the large rendition of a plain image', () => {
+    expect(stillSrc(t({ image: { kind: 'image', thumb: '/media/a-t.webp', large: '/media/a-l.webp', file: null } }))).toBe('/media/a-l.webp');
+  });
+  it('never returns an animated file: the thumb instead', () => {
+    expect(stillSrc(t({ image: { kind: 'image', thumb: '/media/b-t.webp', large: '/media/b.gif', file: '/media/b.gif', animated: true } }))).toBe('/media/b-t.webp');
+  });
+  it('is null without a cover', () => {
+    expect(stillSrc(undefined)).toBeNull();
+    expect(stillSrc(t({}))).toBeNull();
   });
 });

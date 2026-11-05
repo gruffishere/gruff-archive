@@ -484,7 +484,7 @@ for (const r of ROOMS) {
   });
 }
 
-for (const slug of ['the-sigils', 'dive-bar']) {
+for (const slug of ['the-sigils', 'dive-bar', 'pulverulents-trailer']) {
   test(`enter on ${slug} inserts a sandboxed iframe`, async ({ page }) => {
     const room = ROOMS.find((r) => r.slug === slug)!;
     // the real third-party page is not needed to check the frame: serve a stub for its address
@@ -551,4 +551,23 @@ test('i love pure chaos is hosted as a full page with a way back', async ({ page
   await page.goto(roomPath('i-love-pure-chaos'));
   await expect(page.locator('a.poster')).toHaveAttribute('href', '/exp/i-love-pure-chaos/app/');
   await expect(page.locator('iframe')).toHaveCount(0);
+});
+
+test('pulverulents shows the trailer block on its collection page', async ({ page }) => {
+  const c = collections().find((x) => x.slug === 'pulverulents')!;
+  const cfg = loadConfig().collections.find((x) => x.slug === 'pulverulents')!;
+  // skips only while the committed catalog lacks the trailer link the config has
+  test.skip(!!cfg.links?.length && !c.links?.length, 'pending the inventory run: the committed catalog predates the trailer link');
+  await page.route('https://platform.twitter.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><p>stub</p>' }));
+  await checkPage(page, '/c/pulverulents/');
+  await expect(page.locator('.clinks a', { hasText: 'trailer ↗' })).toHaveAttribute('href', 'https://x.com/gruffwashere/status/1960617797278687687');
+  await expect(page.locator('.trailer iframe')).toHaveCount(0);
+  const play = page.getByRole('button', { name: 'play ↗' });
+  await expect(play).toBeVisible();
+  await expect(page.locator('.trailer img')).toHaveAttribute('src', /^\/media\/.+\.(webp|png|jpg)$/);
+  await play.click();
+  const frame = page.locator('.trailer iframe');
+  await expect(frame).toHaveAttribute('src', /^https:\/\/platform\.twitter\.com\/embed\/Tweet\.html\?id=1960617797278687687/);
+  await expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-downloads');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
