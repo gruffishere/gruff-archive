@@ -11,7 +11,7 @@ const collectionCards = experimentCollections(collections()).map((c) => {
   const m = t ? chooseMedia(t, 'thumb') : null;
   return { href: collectionPath(c.slug), title: c.title, src: m?.src ?? null, pixelated: !!m?.pixelated, top: c.accession, status: `${firstYear(c)} · ${c.works} works` };
 });
-const roomCards = ROOMS.map((r) => ({ href: roomPath(r.slug), title: r.title, src: r.cover, pixelated: false, top: roomDateLabel(r), status: roomMeta(r).join(' · ') }));
+const roomCards = ROOMS.map((r) => ({ href: roomPath(r.slug), title: r.title, src: r.cover, pixelated: false, top: roomDateLabel(r), status: (roomDateLabel(r) === '—' ? roomMeta(r) : roomMeta(r).slice(1)).join(' · ') }));
 const cards = [...collectionCards, ...roomCards];
 ---
 <Base title="experiments — gruff" current="experiments">

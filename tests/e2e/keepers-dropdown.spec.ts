@@ -1,6 +1,6 @@
 import { collections, tokensOf } from '../../src/lib/data';
 import { expect, test } from '@playwright/test';
-import { checkPage } from './smoke.spec';
+import { checkPage } from './helpers';
 
 // an edition with several owners shows one "keepers" tab instead of "holds N" rows
 const multi = () => {
