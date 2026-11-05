@@ -1,12 +1,12 @@
 ---
 import type { CollectionOut, TokenOut } from '../lib/data';
 import { displayName, formatDate, formatEth, formatUsd, mintValue, shortAddress } from '../lib/format';
-import { etherscanToken, openseaItem, platformLink } from '../lib/links';
+import { etherscanToken, openseaItem, platformLinkUnlessListed } from '../lib/links';
 import { editionText } from '../lib/label';
 interface Props { c: CollectionOut; t: TokenOut; ethUsd: number | null; asOf: string }
 const { c, t, ethUsd, asOf } = Astro.props;
 const year = (t.mint?.at ?? c.firstMint ?? '').slice(0, 4);
-const platform = platformLink(c, t.id);
+const platform = platformLinkUnlessListed(c, t.id);
 const edition = editionText(t, c);
 const collabs = t.collaborators ?? [];
 const mintText = t.mint ? mintValue(t.mint) : '—';

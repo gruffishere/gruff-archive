@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -49,7 +49,6 @@ describe('avif decoding', () => {
       expect([m.format, m.width, m.height]).toEqual(['heif', 8, 6]);
       const webp = await sharp(bytes).resize(4).webp().toBuffer();
       expect((await sharp(webp).metadata()).format).toBe('webp');
-      writeFileSync(join(dir, 'ok'), '');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -28,11 +28,14 @@ if (wall) {
 
   // Hover or keyboard focus plays an animated piece: the tile swaps its static rendition for the original gif (loaded
   // only now), or plays its video. The box never changes, so nothing reflows. Touch is left alone: a tap opens the work.
+  const state = new Map<HTMLAnchorElement, { hover: boolean; focus: boolean }>();
+  const flags = (tile: HTMLAnchorElement) => state.get(tile) ?? state.set(tile, { hover: false, focus: false }).get(tile)!;
   const play = (tile: HTMLAnchorElement) => {
     const video = tile.querySelector('video');
     if (video) return void video.play().catch(() => {});
     const img = tile.querySelector<HTMLImageElement>('img[data-gif]');
     if (!img || img.src.endsWith(img.dataset.gif!)) return;
+    if (img.srcset) img.dataset.srcset = img.srcset;
     img.removeAttribute('srcset');
     img.src = img.dataset.gif!;
   };
@@ -44,14 +47,36 @@ if (wall) {
       return;
     }
     const img = tile.querySelector<HTMLImageElement>('img[data-gif]');
-    if (img?.dataset.still) img.src = img.dataset.still;
+    if (!img?.dataset.still) return;
+    if (img.dataset.srcset) img.srcset = img.dataset.srcset;
+    img.src = img.dataset.still;
   };
   for (const tile of tiles) {
     if (!tile.querySelector('video, img[data-gif]')) continue;
-    tile.addEventListener('pointerenter', (e) => e.pointerType !== 'touch' && play(tile));
-    tile.addEventListener('pointerleave', () => stop(tile));
-    tile.addEventListener('focus', () => tile.matches(':focus-visible') && play(tile));
-    tile.addEventListener('blur', () => stop(tile));
+    // plays while hovered or keyboard-focused; stops only when neither remains
+    const settle = () => {
+      const s = flags(tile);
+      if (s.hover || s.focus) play(tile);
+      else stop(tile);
+    };
+    tile.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'touch') return;
+      flags(tile).hover = true;
+      settle();
+    });
+    tile.addEventListener('pointerleave', () => {
+      flags(tile).hover = false;
+      settle();
+    });
+    tile.addEventListener('focus', () => {
+      if (!tile.matches(':focus-visible')) return;
+      flags(tile).focus = true;
+      settle();
+    });
+    tile.addEventListener('blur', () => {
+      flags(tile).focus = false;
+      settle();
+    });
   }
 
   layout();

@@ -1,4 +1,5 @@
 import { catalogPieces } from '../../src/lib/catalog';
+import { loadConfig } from '../../indexer/config';
 import { countLabel } from '../../src/lib/collections';
 import { collections, tokensOf } from '../../src/lib/data';
 import { workPath } from '../../src/lib/links';
@@ -117,7 +118,12 @@ test('an erc-721 collection of several works numbers its editions 1/1/<works>', 
 // wait for the inventory run (the committed catalog predates config/collections.yaml) and then hold for good.
 test('facets is an experiment with its links', async ({ page }) => {
   const c = collections().find((x) => x.slug === 'facets')!;
-  test.skip(c.section !== 'experiments' || !c.links?.length, 'pending the inventory run: the committed catalog predates the config change');
+  // skips only while the committed catalog is stale relative to the config; once they agree it runs and must pass
+  const cfg = loadConfig().collections.find((x) => x.slug === 'facets')!;
+  const stale = (cfg.section === 'experiments' && c.section !== 'experiments') || (!!cfg.links?.length && !c.links?.length);
+  test.skip(stale, 'pending the inventory run: the committed catalog predates config/collections.yaml');
+  expect(c.section).toBe(cfg.section);
+  expect(c.links).toEqual(cfg.links ?? []);
   await checkPage(page, '/');
   await expect(page.locator('#ledger a.row[data-code="FCT"]')).toHaveAttribute('data-exp', 'true');
   await expect(page.locator('#ledger a.row[data-code="FCT"] .exp')).toHaveText('exp.');
@@ -352,7 +358,9 @@ test('a work page links to the original on arweave', async ({ page }) => {
 test('hovering or focusing an animated catalog piece plays its gif, leaving restores the still', async ({ page }) => {
   const cols = collections();
   const gif = catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]))).find((p) => p.hover?.type === 'gif' && p.hover.src.endsWith('.gif'));
-  test.skip(!gif, 'no animated piece hangs on the wall');
+  const anyAnimated = cols.some((c) => tokensOf(c.slug).some((t) => t.image?.animated));
+  test.skip(!anyAnimated, 'the catalog has no animated piece');
+  expect(gif, 'an animated piece in the catalog must hang on the wall').toBeTruthy();
   const gifRequests: string[] = [];
   page.on('request', (r) => /\.gif(\?|$)/i.test(r.url()) && gifRequests.push(r.url()));
   await checkPage(page, '/catalog/');
@@ -362,6 +370,7 @@ test('hovering or focusing an animated catalog piece plays its gif, leaving rest
   await tile.scrollIntoViewIfNeeded();
   const still = await img.getAttribute('src');
   expect(still).toMatch(/\.webp$/);
+  const stillSrcset = await img.getAttribute('srcset');
   expect(gifRequests, 'no gif before the first hover').toEqual([]);
   const before = (await tile.boundingBox())!;
   await tile.hover();
@@ -372,6 +381,7 @@ test('hovering or focusing an animated catalog piece plays its gif, leaving rest
   expect(await img.evaluate((e) => getComputedStyle(e).objectFit)).toBe('cover');
   await page.mouse.move(0, 0);
   await expect(img).toHaveAttribute('src', still!);
+  expect(await img.getAttribute('srcset')).toBe(stillSrcset);
   // keyboard focus plays it too, blur stops it
   await page.keyboard.press('Shift');
   await tile.focus();

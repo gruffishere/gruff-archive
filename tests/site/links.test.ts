@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TokenOut } from '../../src/lib/data';
-import { collectionPath, etherscanAddress, etherscanToken, openseaItem, originalLink, platformLink, workPath } from '../../src/lib/links';
+import { collectionPath, etherscanAddress, etherscanToken, openseaItem, originalLink, platformLink, platformLinkUnlessListed, workPath } from '../../src/lib/links';
 
 const C = '0x3be88adf4d68c32bad5707588c7d25e1af8644e0';
 
@@ -21,6 +21,12 @@ describe('links', () => {
     expect(platformLink({ platform: 'manifold', platformUrl: null, contract: C }, '1')).toBeNull();
     expect(platformLink({ platform: 'manifold', platformUrl: 'https://example.com/x', contract: C }, '1')).toEqual({ label: 'example.com', url: 'https://example.com/x' });
     expect(platformLink({ platform: 'onchain', platformUrl: 'https://www.thefacets.art', contract: C }, '1')?.label).toBe('thefacets.art');
+  });
+  it('drops the platform link when the collection links already carry it', () => {
+    const c = { platform: 'onchain' as const, platformUrl: 'https://thefacets.art', contract: C };
+    expect(platformLinkUnlessListed({ ...c, links: [{ url: 'https://thefacets.art/' }] }, '1')).toBeNull();
+    expect(platformLinkUnlessListed({ ...c, links: [{ url: 'https://x.com/facetsart' }] }, '1')?.url).toBe('https://thefacets.art');
+    expect(platformLinkUnlessListed(c, '1')?.url).toBe('https://thefacets.art');
   });
   it('has no platform link for opensea (the work page has its own)', () => {
     expect(platformLink({ platform: 'opensea', platformUrl: null, contract: C }, '1')).toBeNull();

@@ -30,6 +30,13 @@ export function platformLink(c: Pick<CollectionOut, 'platform' | 'platformUrl' |
   }
 }
 
+/** The platform link, unless the collection's own links already carry that address. */
+export function platformLinkUnlessListed(c: Pick<CollectionOut, 'platform' | 'platformUrl' | 'contract'> & { links?: { url: string }[] }, id: string) {
+  const p = platformLink(c, id);
+  const norm = (u: string) => u.replace(/\/+$/, '').toLowerCase();
+  return p && (c.links ?? []).some((l) => norm(l.url) === norm(p.url)) ? null : p;
+}
+
 /** Where to open the artwork as minted: the public source when there is one, else the file the site stores (on-chain works). */
 export function originalLink(t: TokenOut): { url: string; where: string } | null {
   const kinds = [t.animation?.kind, t.image?.kind];

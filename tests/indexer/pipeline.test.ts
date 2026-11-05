@@ -175,6 +175,16 @@ describe('loadMedia OpenSea fallback at full size', () => {
     expect(JSON.parse(readFileSync(join(ctx.rawDir, 'os-images', 'test.json'), 'utf8'))['1'].url).toBe(small);
   });
 
+  it('falls back to the preview url when the 4000 px download fails, and then links no png', async () => {
+    const os = fakeOs(async () => small);
+    const { ctx, download } = ctxWith({ os }, { [small]: { bytes: png, mime: 'image/png' } });
+    const media = await loadMedia(cfg, new Map([['1', meta('1')]]), ctx);
+    expect(download).toHaveBeenCalledWith(full);
+    expect(download).toHaveBeenCalledWith(small);
+    expect(media.get('1')!.image?.kind).toBe('image');
+    expect(media.get('1')!.osImage).toBeUndefined();
+  });
+
   it('marks no osImage when the token had its own image', async () => {
     const os = fakeOs(async () => small);
     const { ctx } = ctxWith({ os }, { 'https://a/1.png': { bytes: png, mime: 'image/png' } });

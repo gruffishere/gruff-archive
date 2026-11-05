@@ -216,7 +216,12 @@ export async function loadMedia(cfg: CollectionConfig, metas: Map<string, TokenM
     if (!image) {
       const fallback = await fallbackUrl(id);
       // OpenSea's CDN hands out a 500 px preview: ask for the cached full-size original instead
-      if (fallback && (image = await safe(seadnFull(fallback)))) osImage = fallback;
+      if (fallback) {
+        const full = seadnFull(fallback);
+        // the 4000 px source can fail (size, timeout): then the 500 px preview is still better than no image
+        if ((image = await safe(full))) osImage = fallback;
+        else if (full !== fallback && (image = await safe(fallback))) osImage = undefined;
+      }
     }
     let animation: StoredMedia | null = null;
     if (m.animation && (isHtmlAnimation(m.animation) || (m.animation !== m.image && !isImageUrl(m.animation)))) {

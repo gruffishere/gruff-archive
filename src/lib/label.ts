@@ -5,10 +5,10 @@ import { displayName, formatDate, formatEth, mintValue } from './format';
 export const safeJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
 
 /** The edition line shared by the wall label and the print label. */
-export function editionText(t: Pick<TokenOut, 'supply'>, c: Pick<CollectionOut, 'standard'> & { works?: number }): string {
+export function editionText(t: Pick<TokenOut, 'supply'>, c: Pick<CollectionOut, 'standard'> & { works: number }): string {
   const std = c.standard === 'erc1155' ? 'erc-1155' : 'erc-721';
   if (t.supply <= 0) return `none in circulation · ${std}`;
-  return c.standard === 'erc1155' ? `edition of ${t.supply} · ${std}` : `1/1${(c.works ?? 0) > 1 ? `/${c.works}` : ''} · ${std}`;
+  return c.standard === 'erc1155' ? `edition of ${t.supply} · ${std}` : `1/1${c.works > 1 ? `/${c.works}` : ''} · ${std}`;
 }
 
 export interface LabelLine { text: string; style: 'accession' | 'title' | 'meta' | 'price' | 'row'; /** collaborator names on the meta line, drawn as written */ names?: string }
