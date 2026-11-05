@@ -154,3 +154,27 @@ Requirements:
      - the strung-deck deal shows 5 canvases;
      - `/exp/i-love-pure-chaos/app/` loads without console errors;
      - the index `experiments` chip shows 6 rows.
+
+### Task D: Pulverulents trailer
+
+The artist made a trailer for Pulverulents. The video exists only as an X post: https://x.com/gruffwashere/status/1960617797278687687. The mp4 is not on the artist's computer, so we embed X's own player. Its embed page `https://platform.twitter.com/embed/Tweet.html?id=1960617797278687687&theme=dark&dnt=true` returns 200 and sends no frame-blocking headers.
+
+1. **Config.** Pulverulents (`code: PUL`) gains `links: [{ label: trailer, url: "https://x.com/gruffwashere/status/1960617797278687687" }]`. This shows as `trailer ↗` on the collection page and on every work label, through the existing links line. The catalog picks it up on the controller's next inventory run.
+2. **Trailer block on the collection page.**
+   - When a collection has a `trailer` link that is an x.com/twitter.com status URL, the collection page shows a click-to-load trailer block above the grid.
+   - The block reuses the room embed: a poster with `play ↗`. Clicking it inserts the X embed iframe, with the same third-party sandbox and allow rules as the room embeds.
+   - Poster: the collection's cover rendition (thumb or large of the cover token), never a GIF. If no cover exists, use a quiet empty poster.
+   - Add a pure, unit-tested helper `xEmbedUrl(statusUrl): string | null` for x.com and twitter.com status URLs. Any other URL returns null.
+3. **Experiments room `pulverulents-trailer`:**
+   - title `Pulverulents — trailer`, year 2025, since `2025-08`, status `live`, medium `video`
+   - text: "The trailer for Pulverulents."
+   - links: `collection ↗` → `/c/pulverulents/` and `x ↗` → the post
+   - kind `embed` → `xEmbedUrl(post)`
+   - cover: a still of a Pulverulents work, copied into `public/exp/pulverulents-trailer/cover.webp`. Copy it from the committed media, read-only.
+   - It appears on /experiments and as an `exp.` row on the index, like the other rooms.
+4. **Tests.**
+   - Unit: `xEmbedUrl`, and room data validity.
+   - e2e:
+     - /experiments lists 7 items.
+     - The room page shows `enter ↗` (or `play ↗`), and clicking it inserts an iframe whose src starts with `https://platform.twitter.com/embed/Tweet.html?id=1960617797278687687` and has the third-party sandbox.
+     - /c/pulverulents/ shows the trailer block once the catalog has the trailer link. Skip only while the committed catalog lacks it (the stale-catalog pattern).
