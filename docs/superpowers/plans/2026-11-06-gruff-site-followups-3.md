@@ -122,3 +122,16 @@ A short, quiet note box that invites visitors to leave the artist a note. Notes 
      - it never appears on `/notes/`.
 
    The `checkPage` console-error rule must still hold.
+
+### Task 4: one "keepers" row that opens the list (work pages)
+
+The artist: rows like "holds 4 · x", "holds 3 · y" on edition work pages are confusing and tiring to read. Show one tab instead: `keepers` with the count, which opens the current keepers list below.
+
+1. In `src/components/WallLabel.astro`, edition tokens (erc1155) with more than one holder replace the `holds N` owner rows with one row: `keepers ……… 51 ▾`. It is a native `<details><summary>` so it works without JS, with a `.hit` target.
+2. Opening it reveals the full current owner list for that token (`t.owners`), sorted by quantity then name. Each line shows the display name (ENS or `0x7a3…e91`, lowercase) on the left and the quantity on the right, with a dotted leader, in the same ledger style. Each name links to Etherscan's address page (`target="_blank" rel="noopener"`). Escrowed owners keep any existing marker.
+3. A single-owner token keeps the current `owner ……… name` row. A 721 keeps its owner row.
+4. Long lists (more than 30) scroll inside the panel (max-height plus overflow) rather than stretching the label. Use the global `.lower` class for names.
+5. The print label keeps its current `keepers N` line.
+6. Tests:
+   - Unit-test the owner-sort helper.
+   - e2e: `/w/collabs/1/` shows one `keepers` summary; opening it shows as many rows as the token has owners; no `holds` rows remain.
