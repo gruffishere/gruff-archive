@@ -2,8 +2,8 @@ let workerScriptURL = null;
 
 async function ensureWorkerScript() {
   if (workerScriptURL) return workerScriptURL;
-  const response = await fetch('https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js');
-  if (!response.ok) throw new Error('Failed to load gif.worker.js from CDN');
+  const response = await fetch(new URL('../vendor/gif.worker.js', import.meta.url));
+  if (!response.ok) throw new Error('Failed to load gif.worker.js from vendor');
   const code = await response.text();
   const blob = new Blob([code], { type: 'application/javascript' });
   workerScriptURL = URL.createObjectURL(blob);

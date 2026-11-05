@@ -104,7 +104,7 @@ const months = timeline().map((t) => t.month);
   .row.head { font-size: 10px; padding-bottom: 6px; }
   .row[hidden] { display: none; }
   #ledger .row:hover, #ledger .row:focus-visible { background: var(--fg); color: #000; text-decoration: none; margin: 0 -10px; padding: 5px 10px; outline: none; }
-  #ledger .row:hover .k, #ledger .row:hover .m, #ledger .row:focus-visible .k, #ledger .row:focus-visible .m { color: #000; }
+  #ledger .row:hover .k, #ledger .row:hover .m, #ledger .row:hover .exp, #ledger .row:hover .mint, #ledger .row:focus-visible .k, #ledger .row:focus-visible .m, #ledger .row:focus-visible .exp, #ledger .row:focus-visible .mint { color: #000; }
   #ledger .row:hover .lead::after, #ledger .row:focus-visible .lead::after { border-color: #000; }
   .pv { position: sticky; top: 24px; opacity: 0; transition: opacity .8s ease; }
   .pv.on { opacity: 1; }

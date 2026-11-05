@@ -1,7 +1,7 @@
 import { generate } from './engine.js';
 import { randomSeed } from './rng.js';
 import { startPlayback, stopPlayback } from './playback.js';
-import { parseGIF, decompressFrames } from 'https://esm.sh/gifuct-js@2.1.2';
+import { parseGIF, decompressFrames } from '../vendor/gifuct-js.js';
 
 const ALL_OPS = [
   'pixel-sort', 'channel-shift', 'bit-crush', 'jpeg-bomb',
