@@ -48,7 +48,7 @@ export function latestByKind(months: ActivityRow[][], kind: EventKind, n: number
   return months
     .flat()
     .filter((r) => r.kind === kind)
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
     .slice(0, n);
 }
 

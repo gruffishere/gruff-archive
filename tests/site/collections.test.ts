@@ -22,6 +22,9 @@ describe('collections', () => {
     expect(filterTags(all[1])).toEqual(['all', 'generative', 'experiments']);
     expect(filterTags(all[0])).not.toContain('experiments');
   });
+  it('tags OVVN with generative, on-chain and experiments together', () => {
+    expect(filterTags(c({ section: 'experiments', techniques: ['generative', 'on-chain'] }))).toEqual(['all', 'generative', 'on-chain', 'experiments']);
+  });
   it('counts with correct singular and plural', () => {
     expect(countLabel(1, 'experiment')).toBe('1 experiment');
     expect(countLabel(2, 'experiment')).toBe('2 experiments');

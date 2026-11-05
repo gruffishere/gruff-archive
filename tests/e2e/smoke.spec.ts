@@ -41,6 +41,11 @@ test('index lists the collections and filters them', async ({ page }) => {
   await expect(page.locator('#ledger a.row:visible')).toHaveCount(1);
   await expect(page.locator('#ledger a.row:visible')).toHaveAttribute('data-code', 'OVN');
   await expect(page.locator('#ledger a.row:visible .exp')).toHaveText('exp.');
+  // geometric: the marker sits on the title's first line, before it
+  const eb = (await page.locator('#ledger a.row:visible .exp').boundingBox())!;
+  const tb = (await page.locator('#ledger a.row:visible .tt').boundingBox())!;
+  expect(eb.x + eb.width).toBeLessThanOrEqual(tb.x + 1);
+  expect(Math.abs(eb.y + eb.height / 2 - (tb.y + 8))).toBeLessThanOrEqual(8);
   await expect(page.getByText(/last inventory:/i)).toBeVisible();
 });
 
@@ -134,7 +139,16 @@ test('activity ledger lists events and filters them', async ({ page }) => {
   await page.getByRole('button', { name: 'sales' }).click();
   // no sales exist in the history yet (they arrive with the keyed OpenSea inventory): the empty line shows only because the whole history has none
   if ((await page.locator('.act .ev:visible').count()) === 0) await expect(page.locator('.empty')).toBeVisible();
-  else await expect(page.locator('.empty')).toBeHidden();
+  else {
+    await expect(page.locator('.empty')).toBeHidden();
+    for (const kind of await page.locator('.act .ev:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.kind))) expect(kind).toBe('sale');
+  }
+  await page.getByRole('button', { name: 'listings' }).click();
+  if ((await page.locator('.act .ev:visible').count()) === 0) await expect(page.locator('.empty')).toBeVisible();
+  else {
+    await expect(page.locator('.empty')).toBeHidden();
+    for (const kind of await page.locator('.act .ev:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.kind))) expect(kind).toBe('listed');
+  }
   await page.getByRole('button', { name: 'all', exact: true }).click();
   await expect(page.locator('.empty')).toBeHidden();
   const firstMonth = page.locator('.months a').first();

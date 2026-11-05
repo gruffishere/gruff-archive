@@ -1,3 +1,4 @@
+import { countLabel } from '../lib/collections';
 import { archiveAt, monthLabel } from '../lib/timeline';
 import type { TimelineMonth } from '../../indexer/aggregate/timeline';
 
@@ -94,14 +95,10 @@ if (host) {
       const shown = rows.filter((r) => !state.hiddenByTime.has(r.dataset.code ?? ''));
       const nExp = shown.filter((r) => r.dataset.exp === 'true').length;
       const nCol = shown.length - nExp;
-      const setCount = (id: string, wordId: string, n: number, one: string, many: string) => {
-        const c = document.getElementById(id);
-        if (c) c.textContent = String(n);
-        const w = document.getElementById(wordId);
-        if (w) w.textContent = n === 1 ? one : many;
-      };
-      setCount('count-collections', 'word-collections', nCol, 'collection', 'collections');
-      setCount('count-experiments', 'word-experiments', nExp, 'experiment', 'experiments');
+      const cc = document.getElementById('count-collections');
+      if (cc) cc.textContent = countLabel(nCol, 'collection');
+      const ce = document.getElementById('count-experiments');
+      if (ce) ce.textContent = countLabel(nExp, 'experiment');
       document.getElementById('exp-count')?.toggleAttribute('hidden', nExp === 0);
       const ck = document.getElementById('count-keepers');
       if (ck) ck.textContent = isNow ? originalKeepers : String(a.holders);
