@@ -1,7 +1,7 @@
 export type Address = string; // always lowercase, 0x-prefixed
 
 export type Standard = 'erc721' | 'erc1155';
-export type Platform = 'manifold' | 'foundation' | 'transient' | '6529' | 'onchain' | 'custom';
+export type Platform = 'manifold' | 'foundation' | 'transient' | '6529' | 'opensea' | 'onchain' | 'custom';
 export type Section = 'index' | 'experiments';
 
 export interface CollectionConfig {
@@ -21,6 +21,8 @@ export interface CollectionConfig {
   metadata?: 'blockscout' | 'chain';
   /** Zero-padding width of token accession numbers; default max(3, digits of the highest id). */
   accessionWidth?: number;
+  /** Per-token collaborator names that replace what is parsed from the description. */
+  collaborators?: Record<string, string[]>;
 }
 
 export interface RawTransfer {

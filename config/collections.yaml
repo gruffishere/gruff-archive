@@ -14,7 +14,7 @@ collections:
   - { code: ICN, slug: icons, title: "ICON's by Gruff", contract: "0x4b5599f580dc09db8ac3c7cbe650137d871d3ae1", standard: erc721, platform: foundation, section: index, techniques: [illustration] }
   - { code: SLV, slug: silver-surfer, title: "SILVER SURFER", contract: "0x3be88adf4d68c32bad5707588c7d25e1af8644e0", standard: erc721, platform: manifold, section: index, techniques: [illustration] }
   - { code: ESS, slug: essence, title: "ESSENCE", contract: "0xf808228c5dd6e5b0a8f80c55c83c54f5520d15d5", standard: erc721, platform: manifold, section: index, techniques: [illustration] }
-  - { code: GRT, slug: gruffters, title: "Gruffters", contract: "0x72b1f41c1afc5cc7e68071753967902138b51bb2", standard: erc721, platform: custom, section: index, techniques: [generative] }
+  - { code: GRT, slug: gruffters, title: "Gruffters", contract: "0x72b1f41c1afc5cc7e68071753967902138b51bb2", standard: erc721, platform: opensea, section: index, techniques: [generative] }
   - { code: OVS, slug: oversimulated, title: "oversimulated", contract: "0x685ec110408cede874604f75ff9ccbd297ccde21", standard: erc721, platform: transient, section: index, techniques: [photo, glitch] }
   - { code: "366", slug: worthless, title: "WORTHLESS", contract: "0x33fd426905f149f8376e227d0c9d3340aad17af1", standard: erc1155, platform: "6529", section: index, tokenIds: [366], techniques: [photo, glitch] }
   - { code: SUB, slug: subsimulated, title: "subsimulated", contract: "0x5b5a4bcaedf305a6c85f83486a907a188224efa8", standard: erc1155, platform: transient, section: index, techniques: [photo, glitch] }

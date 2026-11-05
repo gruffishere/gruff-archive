@@ -74,4 +74,17 @@ describe('parseConfig extras (M3, M7)', () => {
     expect(() => parseConfig(w('0'))).toThrow();
     expect(() => parseConfig(w('2.5'))).toThrow();
   });
+
+  it('accepts the opensea platform', () => {
+    expect(parseConfig(yaml.replace('platform: manifold', 'platform: opensea')).collections[0].platform).toBe('opensea');
+  });
+
+  it('accepts a per-token collaborators override', () => {
+    const c = parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    collaborators: { "3": ["A", "B"] }'));
+    expect(c.collections[0].collaborators).toEqual({ '3': ['A', 'B'] });
+  });
+
+  it('rejects a malformed collaborators override', () => {
+    expect(() => parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    collaborators: { "3": "A" }'))).toThrow();
+  });
 });

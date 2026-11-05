@@ -1,6 +1,8 @@
 import { accession } from '../accession';
+import { parseCollaborators } from '../collaborators';
 import { DEAD, type Balances, ZERO } from '../ledger';
 import type { StoredMedia } from '../media';
+import { toPublicUrl } from '../originals';
 import type { ArchiveEvent, CollectionConfig, Listing, MintInfo, TokenMeta } from '../types';
 import { EXCLUDED_HOLDERS, isKeeperAddress } from './exclusions';
 
@@ -11,6 +13,9 @@ export interface TokenOut {
   description: string | null;
   image: StoredMedia | null;
   animation: StoredMedia | null;
+  /** Public urls of the sources as minted, independent of whether the download succeeded. */
+  originals: { image: string | null; animation: string | null };
+  collaborators: string[];
   mint: MintInfo | null;
   lastSale: { at: string; priceWei: string } | null;
   listing: Listing | null;
@@ -101,6 +106,8 @@ export function buildTokens(i: TokenInputs): TokenOut[] {
       description: meta?.description ?? null,
       image: media?.image ?? null,
       animation: media?.animation ?? null,
+      originals: { image: toPublicUrl(meta?.image ?? null), animation: toPublicUrl(meta?.animation ?? null) },
+      collaborators: i.cfg.collaborators?.[id] ?? parseCollaborators(meta?.description ?? null),
       mint,
       lastSale: lastSale ? { at: lastSale.timestamp, priceWei: lastSale.priceWei! } : null,
       listing: i.listings.get(id) ?? null,

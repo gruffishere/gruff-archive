@@ -14,7 +14,7 @@ const collectionSchema = z.object({
   title: z.string().min(1),
   contract: address,
   standard: z.enum(['erc721', 'erc1155']),
-  platform: z.enum(['manifold', 'foundation', 'transient', '6529', 'onchain', 'custom']),
+  platform: z.enum(['manifold', 'foundation', 'transient', '6529', 'opensea', 'onchain', 'custom']),
   platformUrl: z.string().url().optional(),
   section: z.enum(['index', 'experiments']),
   tokenIds: z.array(z.coerce.string()).optional(),
@@ -23,6 +23,7 @@ const collectionSchema = z.object({
   wallText: z.string().optional(),
   metadata: z.enum(['blockscout', 'chain']).default('blockscout'),
   accessionWidth: z.number().int().positive().optional(),
+  collaborators: z.record(z.string(), z.array(z.string())).optional(),
 }).strict();
 
 const fileSchema = z.object({

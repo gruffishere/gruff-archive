@@ -72,15 +72,15 @@ describe('storeMedia', () => {
     expect(readdirSync(outDir)).toHaveLength(1);
   });
 
-  it('remembers failures for 7 days', async () => {
+  it('remembers failures for 6 hours', async () => {
     const outDir = mkdtempSync(join(tmpdir(), 'media-'));
     let tries = 0;
     const deps = { outDir, publicPrefix: '/media', download: async () => (tries++, null) };
     const manifest: Record<string, ManifestEntry> = {};
     await storeMedia('https://dead.test/a.png', deps, manifest, new Date('2026-01-01'));
-    await storeMedia('https://dead.test/a.png', deps, manifest, new Date('2026-01-03'));
+    await storeMedia('https://dead.test/a.png', deps, manifest, new Date('2026-01-01T03:00:00Z'));
     expect(tries).toBe(1);
-    await storeMedia('https://dead.test/a.png', deps, manifest, new Date('2026-01-09'));
+    await storeMedia('https://dead.test/a.png', deps, manifest, new Date('2026-01-01T07:00:00Z'));
     expect(tries).toBe(2);
   });
 });
@@ -256,12 +256,12 @@ describe('createDownloader', () => {
     expect(calls).toBe(0);
   });
 
-  it('defaults to a 120 s timeout', async () => {
+  it('defaults to a 300 s timeout', async () => {
     const spy = vi.spyOn(AbortSignal, 'timeout');
     try {
       const download = createDownloader({ fetchImpl: async () => new Response('ok') });
       await download('https://slow.test/a.png');
-      expect(spy).toHaveBeenCalledWith(120_000);
+      expect(spy).toHaveBeenCalledWith(300_000);
     } finally {
       spy.mockRestore();
     }

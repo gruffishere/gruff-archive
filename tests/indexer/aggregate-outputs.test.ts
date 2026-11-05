@@ -103,6 +103,22 @@ describe('buildTokens', () => {
     expect(t.map((x) => x.accession)).toEqual(['GRF.25.366']);
   });
 
+  it('exposes the as-minted originals as public urls', () => {
+    expect(tokens[0].originals).toEqual({ image: 'https://arweave.net/a', animation: null });
+    expect(tokens[1].originals).toEqual({ image: null, animation: null });
+  });
+
+  it('parses collaborators from the description, with a config override', () => {
+    const metas = new Map(inputs.metas);
+    metas.set('1', { tokenId: '1', name: 'n', description: 'X collab w/ A & B\nrest', image: null, animation: null });
+    const t = buildTokens({ ...inputs, metas });
+    expect(t[0].collaborators).toEqual(['A', 'B']);
+    expect(t[1].collaborators).toEqual([]);
+    const o = buildTokens({ ...inputs, metas, cfg: { ...cfg, collaborators: { '1': ['Z'], '2': ['Q'] } } });
+    expect(o[0].collaborators).toEqual(['Z']);
+    expect(o[1].collaborators).toEqual(['Q']);
+  });
+
   it('carries over media lost in this run', () => {
     const prev = buildTokens(inputs);
     const next = buildTokens({ ...inputs, media: new Map() });

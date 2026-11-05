@@ -24,7 +24,7 @@ export interface MediaDeps {
 export const IPFS_GATEWAYS = ['https://gateway.pinata.cloud/ipfs/', 'https://ipfs.filebase.io/ipfs/'];
 export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
 export const MAX_ORIGINAL_BYTES = 24 * 1024 * 1024;
-const RETRY_FAILED_AFTER_MS = 7 * 24 * 3600 * 1000;
+const RETRY_FAILED_AFTER_MS = 6 * 3600 * 1000;
 const MAX_INPUT_PIXELS = 1_000_000_000;
 const MAX_HOST_FAILURES = 3;
 const AVIF_BRANDS = new Set(['avif', 'avis']);
@@ -183,7 +183,7 @@ export function createDownloader(
   opts: { maxBytes?: number; timeoutMs?: number; fetchImpl?: (url: string, init?: RequestInit) => Promise<Response> } = {},
 ): MediaDeps['download'] {
   const maxBytes = opts.maxBytes ?? 80 * 1024 * 1024;
-  const timeoutMs = opts.timeoutMs ?? 120_000;
+  const timeoutMs = opts.timeoutMs ?? 300_000;
   const doFetch = opts.fetchImpl ?? ((url: string, init?: RequestInit) => fetch(url, init));
   const failuresByHost = new Map<string, number>();
   const countFailure = (host: string) => failuresByHost.set(host, (failuresByHost.get(host) ?? 0) + 1);
