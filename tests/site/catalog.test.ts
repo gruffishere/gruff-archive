@@ -65,3 +65,39 @@ describe('catalogPieces', () => {
     }
   });
 });
+
+describe('measurePieces', () => {
+  const base = { slug: 's', title: 't', collection: 'c', large: null, pixelated: false, weight: 1 } as const;
+  it('drops an unmeasurable raster piece with a warning and keeps html at 1:1', async () => {
+    const { measurePieces } = await import('../../src/lib/catalog');
+    const { vi } = await import('vitest');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const out = await measurePieces(
+      [
+        { ...base, id: '1', kind: 'img', src: '/media/ok.webp' },
+        { ...base, id: '2', kind: 'img', src: '/media/broken.webp' },
+        { ...base, id: '3', kind: 'iframe', src: '/media/x.html' },
+      ],
+      async (src) => (src.includes('broken') ? null : { w: 300, h: 200 }),
+    );
+    expect(out.map((p) => p.id)).toEqual(['1', '3']);
+    expect(out[0]).toMatchObject({ w: 300, h: 200, tw: 300 });
+    expect(out[1]).toMatchObject({ w: 1, h: 1 });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('s/2');
+    warn.mockRestore();
+  });
+  it('measures a viewBox-only svg through the real reader', async () => {
+    const { measurePieces } = await import('../../src/lib/catalog');
+    const { mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    mkdirSync('public/media', { recursive: true });
+    const f = 'public/media/__vb-test.svg';
+    writeFileSync(f, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect width="40" height="20"/></svg>');
+    try {
+      const [p] = await measurePieces([{ ...base, id: '1', kind: 'img', src: '/media/__vb-test.svg' }]);
+      expect(p!.w / p!.h).toBeCloseTo(2, 1);
+    } finally {
+      rmSync(f, { force: true });
+    }
+  });
+});

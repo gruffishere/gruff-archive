@@ -6,6 +6,8 @@ export interface SalonResult { rects: SalonRect[]; height: number }
 const EPS = 1e-6;
 const TRIALS = 24;
 /** Widest a piece may be, as a share of the wall. */
+/** Smallest reference tile, so tablet widths hang fewer, larger pieces. */
+const MIN_REF = 120;
 const MAX_SHARE = 0.5;
 
 function rng(seed: number) {
@@ -123,7 +125,7 @@ export function salonLayout(items: SalonItem[], containerWidth: number, gap: num
   }
 
   // reference tile: about six across; a piece's area is weight * ref^2
-  const ref = (W - gap * 6) / 7;
+  const ref = Math.max(MIN_REF, (W - gap * 6) / 7);
   const sized: Sized[] = items.map((it, i) => {
     const r = ratios[i]!;
     let w = Math.sqrt(it.weight * ref * ref * r);

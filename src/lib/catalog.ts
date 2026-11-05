@@ -122,12 +122,23 @@ function dimsOf(src: string) {
   return dims.get(src)!;
 }
 
-export async function measurePieces(pieces: Piece[]): Promise<SizedPiece[]> {
-  return Promise.all(
-    pieces.map(async (p) => {
+type Reader = (src: string) => Promise<{ w: number; h: number } | null>;
+
+/**
+ * Attach proportions. Html works shown live are 1:1; a raster or svg piece whose file cannot be measured is dropped
+ * (with one warning) rather than shown as a wrong-shaped crop.
+ */
+export async function measurePieces(pieces: Piece[], read: Reader = dimsOf): Promise<SizedPiece[]> {
+  const out = await Promise.all(
+    pieces.map(async (p): Promise<SizedPiece | null> => {
       if (p.kind === 'iframe') return { ...p, w: 1, h: 1, tw: null, lw: null };
-      const [t, l] = await Promise.all([dimsOf(p.src), p.large ? dimsOf(p.large) : Promise.resolve(null)]);
-      return { ...p, w: t?.w ?? 1, h: t?.h ?? 1, tw: t?.w ?? null, lw: l?.w ?? null };
+      const [t, l] = await Promise.all([read(p.src), p.large ? read(p.large) : Promise.resolve(null)]);
+      if (!t) {
+        console.warn(`catalog: dropping ${p.slug}/${p.id}, cannot measure ${p.src}`);
+        return null;
+      }
+      return { ...p, w: t.w, h: t.h, tw: t.w, lw: l?.w ?? null };
     }),
   );
+  return out.filter((p): p is SizedPiece => !!p);
 }

@@ -79,3 +79,12 @@ describe('salonLayout', () => {
     expect(rects[0]!.w).toBeCloseTo((358 - 12) / 2, 3);
   });
 });
+
+describe('salonLayout tablet', () => {
+  it('keeps tiles reasonably large at 800 px', () => {
+    const { rects } = salonLayout(items(60), 800, 28);
+    const sizes = rects.map((r) => Math.sqrt(r.w * r.h)).sort((a, b) => a - b);
+    expect(sizes[Math.floor(sizes.length / 2)]!).toBeGreaterThanOrEqual(120);
+    expect(Math.min(...rects.map((r) => Math.min(r.w, r.h)))).toBeGreaterThanOrEqual(60);
+  });
+});
