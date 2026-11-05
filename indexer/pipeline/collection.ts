@@ -180,7 +180,8 @@ export async function loadMedia(cfg: CollectionConfig, metas: Map<string, TokenM
   const now = ctx.now ?? (() => new Date());
   const safe = async (src: string) => {
     try {
-      return await storeMedia(src, ctx.mediaDeps, ctx.manifest);
+      // Same clock as the rest of the pipeline, so the retry window and the failedAt stamps agree.
+      return await storeMedia(src, ctx.mediaDeps, ctx.manifest, now());
     } catch (err) {
       ctx.log(`  media failed for ${src.slice(0, 80)}: ${(err as Error).message}`);
       return null;
