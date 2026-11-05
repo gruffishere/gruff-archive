@@ -44,10 +44,10 @@ describe('parseConfig', () => {
 });
 
 describe('loadConfig (real file)', () => {
-  it('has 19 index collections, with FACETS and OVVN in experiments', () => {
+  it('has 20 index collections, with OVVN in experiments', () => {
     const c = loadConfig();
-    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(19);
-    expect(c.collections.filter((x) => x.section === 'experiments').map((x) => x.code).sort()).toEqual(['FCT', 'OVN']);
+    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(20);
+    expect(c.collections.filter((x) => x.section === 'experiments').map((x) => x.code).sort()).toEqual(['OVN']);
     expect(c.collections.find((x) => x.code === '366')?.tokenIds).toEqual(['366']);
   });
 
@@ -102,7 +102,8 @@ describe('parseConfig extras (M3, M7)', () => {
     const { loadConfig } = await import('../../indexer/config');
     const cols = loadConfig().collections;
     const by = (slug: string) => cols.find((c) => c.slug === slug)!;
-    expect(by('facets').section).toBe('experiments');
+    // the artist took FACETS out of experiments on 2026-11-06; it keeps its links
+    expect(by('facets').section).toBe('index');
     expect(by('facets').links).toEqual([
       { label: 'site', url: 'https://thefacets.art' },
       { label: 'x', url: 'https://x.com/facetsart' },
