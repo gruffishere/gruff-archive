@@ -10,7 +10,8 @@ if (wall) {
   const layout = () => {
     const W = wall.clientWidth;
     const vw = window.innerWidth;
-    if (!W || (Math.abs(W - lastWidth) < 0.5 && vw === lastVw)) return;
+    // re-hang only for a real change of width (a scrollbar appearing is ~15 px); the same width always gives the same wall
+    if (!W || (Math.abs(W - lastWidth) <= 24 && (vw >= 768) === (lastVw >= 768) && (vw < 380) === (lastVw < 380) && lastWidth)) return;
     lastWidth = W;
     lastVw = vw;
     const gap = vw >= 768 ? 26 : 14;

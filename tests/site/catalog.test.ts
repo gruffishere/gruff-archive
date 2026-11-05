@@ -68,6 +68,13 @@ describe('catalogPieces', () => {
     const two = catalogPieces([col('a'), col('b')], { a: [dup('1')], b: [dup('2'), ...many(1, 'z')] });
     expect(two.map((p) => p.src).sort()).toEqual(['/media/ph-t.webp', '/media/z1-t.webp']);
   });
+  it('only counts pieces actually hung against later collections', () => {
+    const shared = img('1', { image: { kind: 'image', thumb: '/media/shared-t.webp', large: '/media/shared-l.webp', file: null } as TokenOut['image'] });
+    const gen = [shared, ...many(9, 'q').map((t) => ({ ...t, id: String(Number(t.id) + 1) }))];
+    const out = catalogPieces([col('ga', { techniques: ['generative'] }), col('zb')], { ga: gen, zb: [{ ...shared, id: '7' }] });
+    expect(out.filter((p) => p.slug === 'ga')).toHaveLength(5);
+    expect(out.find((p) => p.slug === 'zb')).toBeTruthy();
+  });
   it('gives each piece a stable weight between 0.6 and 1.8', () => {
     for (const p of pieces) {
       expect(p.weight).toBeGreaterThanOrEqual(0.6);

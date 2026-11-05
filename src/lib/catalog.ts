@@ -84,25 +84,31 @@ function pieceOf(c: CollectionOut, t: TokenOut): Piece | null {
 /** The wall: every work of the non-generative collections once, five spread pieces of each generative one, mixed by a fixed-seed shuffle. */
 export function catalogPieces(collections: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>): Piece[] {
   const all: Piece[] = [];
-  // one wall, one image: a piece whose shown file is already hanging is dropped
-  const seen = new Set<string>();
+  // one wall, one image: a piece whose shown file is already hanging is dropped. `hung` only holds pieces that made it
+  // onto the wall, so a generative collection's unused candidates never block another collection.
+  const hung = new Set<string>();
+  const keyOf = (p: Piece) => `${p.kind}:${p.src}`;
   for (const c of [...collections].sort((a, b) => a.slug.localeCompare(b.slug))) {
     if (c.section !== 'index' && c.section !== 'experiments') continue;
+    const local = new Set<string>();
     const ps = [...(tokensBySlug[c.slug] ?? [])]
       .sort((a, b) => idCmp(a.id, b.id))
       .map((t) => pieceOf(c, t))
       .filter((p): p is Piece => !!p)
       .filter((p) => {
-        const key = `${p.kind}:${p.src}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
+        const key = keyOf(p);
+        if (hung.has(key) || local.has(key)) return false;
+        local.add(key);
         return true;
       });
+    let chosen = ps;
     if (c.techniques.includes('generative') && ps.length > PER_GENERATIVE) {
       // evenly spread picks over the distinct pieces, so duplicates never leave a gap in the five
       const n = ps.length;
-      all.push(...Array.from({ length: PER_GENERATIVE }, (_, i) => ps[Math.floor(((i + 0.5) * n) / PER_GENERATIVE)]!));
-    } else all.push(...ps);
+      chosen = Array.from({ length: PER_GENERATIVE }, (_, i) => ps[Math.floor(((i + 0.5) * n) / PER_GENERATIVE)]!);
+    }
+    for (const p of chosen) hung.add(keyOf(p));
+    all.push(...chosen);
   }
   const rnd = mulberry32(SEED);
   for (let i = all.length - 1; i > 0; i--) {

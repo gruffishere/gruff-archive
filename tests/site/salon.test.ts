@@ -8,6 +8,19 @@ const items = (n: number): SalonItem[] => {
   const ratios = [1, 1, 0.66, 1.5, 0.75, 1.33, 0.5, 2.1, 1, 0.8, 1.78];
   return Array.from({ length: n }, (_, i) => ({ w: ratios[i % ratios.length]! * 100, h: 100, weight: 0.6 + rnd() * 1.2 }));
 };
+// a mix like the real wall: mostly squares and portraits, some landscapes
+const typical = (n: number): SalonItem[] => {
+  const ratios = [1, 0.8, 1, 0.75, 1.33, 1, 0.66, 1, 0.9, 1.5, 1, 0.8, 1, 1.78, 0.75, 1];
+  return Array.from({ length: n }, (_, i) => ({ w: ratios[i % ratios.length]! * 100, h: 100, weight: 1 }));
+};
+// panoramas (3-6), very tall pieces (0.3) and the usual mix
+const extremes = (n: number): SalonItem[] => {
+  const base = [1, 0.75, 1, 0.66, 1.33, 1, 0.5, 1.5, 0.8, 1, 1.78, 0.75];
+  return Array.from({ length: n }, (_, i) => {
+    const r = i % 29 === 5 ? 4.5 : i % 41 === 9 ? 5.8 : i % 19 === 7 ? 3 : i % 7 === 3 ? 0.3 : base[i % base.length]!;
+    return { w: r * 100, h: 100, weight: 1 };
+  });
+};
 type R = { x: number; y: number; w: number; h: number };
 const overlap = (a: R, b: R, gap = 0) =>
   a.x < b.x + b.w + gap - 1e-6 && b.x < a.x + a.w + gap - 1e-6 && a.y < b.y + b.h + gap - 1e-6 && b.y < a.y + a.h + gap - 1e-6;
@@ -33,28 +46,59 @@ describe('salonLayout bands', () => {
   it('hangs without overlaps, inside the container, aspect kept, even gaps', () => {
     for (const W of [1400, 1000, 768]) check(items(95), W, 26);
   });
-  it('justifies every full band to the container width', () => {
+  it('justifies every band but an unjustified last one to the container width', () => {
     for (const [W, gap] of [[1440, 26], [1000, 26], [358, 14]] as const) {
       const { rects, bands } = check(items(95), W, gap);
       bands.forEach((b, bi) => {
-        const inBand = rects.filter((r) => r.y >= b.y - 1e-6 && r.y < b.y + b.h - 1e-6 && Math.abs(r.y - b.y) < b.h);
-        const right = Math.max(...inBand.filter((r) => r.y + r.h > b.y).map((r) => r.x + r.w));
+        const inBand = rects.filter((r) => Math.abs(r.y - b.y) < b.h && r.y >= b.y - 1e-6);
+        const right = Math.max(...inBand.map((r) => r.x + r.w));
         if (b.justified) expect(Math.abs(right - W)).toBeLessThan(1);
         else expect(bi).toBe(bands.length - 1);
       });
-      expect(bands.slice(0, -1).every((b) => b.justified)).toBe(true);
     }
   });
-  it('keeps band heights in the target range at 1440 and on a phone', () => {
-    const d = check(items(95), 1440, 26);
-    d.bands.slice(0, -1).forEach((b) => { expect(b.h).toBeGreaterThanOrEqual(560); expect(b.h).toBeLessThanOrEqual(720); });
-    const p = check(items(95), 358, 14, 390);
-    p.bands.slice(0, -4).forEach((b) => { expect(b.h).toBeGreaterThanOrEqual(360); expect(b.h).toBeLessThanOrEqual(440); });
-    expect(bandTarget(1440, false)).toBeGreaterThanOrEqual(560);
+  const cases: Array<[string, SalonItem[], number, number, number | undefined]> = [
+    ['1440 x95', items(95), 1440, 26, undefined],
+    ['1326 x101', items(101), 1326, 26, undefined],
+    ['1000 x60', items(60), 1000, 26, undefined],
+    ['800 x60', items(60), 800, 26, undefined],
+    ['768 x60', items(60), 768, 26, undefined],
+    ['358 x95', items(95), 358, 14, 390],
+    ['358 x60', items(60), 358, 14, 390],
+    ['700 x40', items(40), 700, 14, 700],
+    ['1440 extremes', extremes(84), 1440, 26, undefined],
+    ['1000 extremes', extremes(60), 1000, 26, undefined],
+    ['800 extremes', extremes(60), 800, 26, undefined],
+    ['358 extremes', extremes(60), 358, 14, 390],
+  ];
+  it.each(cases)('keeps every band (last one aside, if left-aligned) within the target range: %s', (_n, its, W, gap, vw) => {
+    const { bands } = check(its, W, gap, vw);
+    const Ht = bandTarget(W, (vw ?? W) < 768);
+    bands.forEach((b, bi) => {
+      if (!b.justified) { expect(bi).toBe(bands.length - 1); expect(b.h).toBeCloseTo(Ht, 3); return; }
+      expect(b.h).toBeGreaterThanOrEqual(Ht * 0.9 - 1e-6);
+      expect(b.h).toBeLessThanOrEqual(Ht * 1.09 + 1e-6);
+    });
   });
-  it('puts about 10-15 pieces in a desktop band', () => {
-    const { bands } = check(items(95), 1440, 26);
-    bands.slice(0, -1).forEach((b) => { expect(b.count).toBeGreaterThanOrEqual(5); expect(b.count).toBeLessThanOrEqual(18); });
+  it('lands in the spec heights at 1440 (560-720) and on a phone (360-440)', () => {
+    check(items(95), 1440, 26).bands.forEach((b) => { if (b.justified) { expect(b.h).toBeGreaterThanOrEqual(560); expect(b.h).toBeLessThanOrEqual(720); } });
+    check(items(95), 358, 14, 390).bands.forEach((b) => { if (b.justified) { expect(b.h).toBeGreaterThanOrEqual(360); expect(b.h).toBeLessThanOrEqual(440); } });
+  });
+  it('puts about 8-16 pieces in a desktop band at 1440', () => {
+    const { bands } = check(typical(101), 1326, 26);
+    const body = bands.slice(0, -1);
+    body.forEach((b) => { expect(b.count).toBeGreaterThanOrEqual(5); expect(b.count).toBeLessThanOrEqual(18); });
+    const mean = body.reduce((sum, b) => sum + b.count, 0) / body.length;
+    expect(mean).toBeGreaterThanOrEqual(8);
+    expect(mean).toBeLessThanOrEqual(16);
+  });
+  it('hangs a wall in well under 40 ms', () => {
+    salonLayout(items(101), 1326, 26);
+    for (const [W, gap] of [[1326, 26], [358, 14]] as const) {
+      const t = performance.now();
+      salonLayout(items(101), W, gap);
+      expect(performance.now() - t).toBeLessThan(40);
+    }
   });
   it('mixes block types: tall singles, stacks and rows', () => {
     const { rects } = check(items(95), 1440, 26);
