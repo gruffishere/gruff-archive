@@ -23,4 +23,10 @@ describe('parseCollaborators', () => {
     expect(parseCollaborators(null)).toEqual([]);
     expect(parseCollaborators('collab w/ ')).toEqual([]);
   });
+  it('does not match "without" or "within", strips @, handles CRLF', () => {
+    expect(parseCollaborators('collab without Bob')).toEqual([]);
+    expect(parseCollaborators('collab within Bob')).toEqual([]);
+    expect(parseCollaborators('collab w/ @Ann, @Bob\r\nnext')).toEqual(['Ann', 'Bob']);
+    expect(parseCollaborators('x collab w/@Ann\r\nnext')).toEqual(['Ann']);
+  });
 });

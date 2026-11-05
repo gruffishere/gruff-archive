@@ -24,4 +24,15 @@ describe('toPublicUrl', () => {
     expect(toPublicUrl(null)).toBeNull();
     expect(toPublicUrl('ftp://x/y')).toBeNull();
   });
+  it('normalises case and whitespace of schemes', () => {
+    expect(toPublicUrl('  HTTPS://Example.com/a.png ')).toBe('https://Example.com/a.png');
+    expect(toPublicUrl('IPFS://bafyCID/1.png')).toBe(`${gw}bafyCID/1.png`);
+    expect(toPublicUrl('AR://abc')).toBe('https://arweave.net/abc');
+  });
+  it('keeps paths and query strings', () => {
+    expect(toPublicUrl('ar://id/path')).toBe('https://arweave.net/id/path');
+    expect(toPublicUrl('ipfs://ipfs/cid/path')).toBe(`${gw}cid/path`);
+    expect(toPublicUrl('https://x.test/a.png?w=1&h=2')).toBe('https://x.test/a.png?w=1&h=2');
+    expect(toPublicUrl('ipfs://cid/a.png?x=1')).toBe(`${gw}cid/a.png?x=1`);
+  });
 });
