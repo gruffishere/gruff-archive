@@ -4,6 +4,8 @@ import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
 import { inCirculation } from './collections';
 import { chooseMedia } from './media';
+import { workPath } from './links';
+import type { PoolItem } from './pool';
 
 export interface Piece {
   slug: string;
@@ -19,7 +21,7 @@ export interface Piece {
   hover: { type: 'gif' | 'video'; src: string } | null;
   weight: number;
 }
-export interface SizedPiece extends Piece {
+export interface Dimensions {
   /** Intrinsic proportions of the file that is shown. */
   w: number;
   h: number;
@@ -27,6 +29,7 @@ export interface SizedPiece extends Piece {
   tw: number | null;
   lw: number | null;
 }
+export type SizedPiece = Piece & Dimensions;
 
 const PER_GENERATIVE = 5;
 const SEED = 0x6772_7566; // "gruf"
@@ -123,6 +126,63 @@ export function catalogPieces(collections: CollectionOut[], tokensBySlug: Record
   return all;
 }
 
+const POOL_PER_GENERATIVE = 60;
+
+/**
+ * The pool the browser draws each visit from: every displayable work of the non-generative collections, and up to 60
+ * spread works of each generative one. Same one-image-per-wall rule as `catalogPieces`.
+ */
+export function catalogPool(collections: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>): (Piece & { generative: boolean })[] {
+  const out: (Piece & { generative: boolean })[] = [];
+  const hung = new Set<string>();
+  const keyOf = (p: Piece) => `${p.kind}:${p.src}`;
+  for (const c of [...collections].sort((a, b) => a.slug.localeCompare(b.slug))) {
+    if (c.section !== 'index' && c.section !== 'experiments') continue;
+    const local = new Set<string>();
+    const ps = [...(tokensBySlug[c.slug] ?? [])]
+      .sort((a, b) => idCmp(a.id, b.id))
+      .map((t) => pieceOf(c, t))
+      .filter((p): p is Piece => !!p)
+      .filter((p) => {
+        const key = keyOf(p);
+        if (hung.has(key) || local.has(key)) return false;
+        local.add(key);
+        return true;
+      });
+    const generative = c.techniques.includes('generative');
+    let chosen = ps;
+    if (generative && ps.length > POOL_PER_GENERATIVE) {
+      const n = ps.length;
+      chosen = Array.from({ length: POOL_PER_GENERATIVE }, (_, i) => ps[Math.floor(((i + 0.5) * n) / POOL_PER_GENERATIVE)]!);
+    }
+    for (const p of chosen) hung.add(keyOf(p));
+    out.push(...chosen.map((p) => ({ ...p, generative })));
+  }
+  return out;
+}
+
+/** What a tile needs, as the JSON the catalog page ships. */
+export function toPoolItem(p: SizedPiece & { generative: boolean }): PoolItem {
+  return {
+    slug: p.slug,
+    id: p.id,
+    title: p.title,
+    collection: p.collection,
+    generative: p.generative,
+    kind: p.kind,
+    src: p.src,
+    large: p.large && p.tw && p.lw ? p.large : null,
+    tw: p.large && p.tw && p.lw ? p.tw : null,
+    lw: p.large && p.tw && p.lw ? p.lw : null,
+    w: p.w,
+    h: p.h,
+    pixelated: p.pixelated,
+    hover: p.hover,
+    weight: p.weight,
+    href: workPath(p.slug, p.id),
+  };
+}
+
 const dims = new Map<string, Promise<{ w: number; h: number } | null>>();
 type Reader = (src: string) => Promise<{ w: number; h: number } | null>;
 /** Reader of stored media dimensions (read-only) under `root`, cached for the build. */
@@ -150,9 +210,9 @@ export function mediaReader(root = 'public'): Reader {
  * Attach proportions. Html works shown live are 1:1; a raster or svg piece whose file cannot be measured is dropped
  * (with one warning) rather than shown as a wrong-shaped crop.
  */
-export async function measurePieces(pieces: Piece[], read: Reader = mediaReader()): Promise<SizedPiece[]> {
+export async function measurePieces<P extends Piece>(pieces: P[], read: Reader = mediaReader()): Promise<(P & Dimensions)[]> {
   const out = await Promise.all(
-    pieces.map(async (p): Promise<SizedPiece | null> => {
+    pieces.map(async (p): Promise<(P & Dimensions) | null> => {
       if (p.kind === 'iframe') return { ...p, w: 1, h: 1, tw: null, lw: null };
       const [t, l] = await Promise.all([read(p.src), p.large ? read(p.large) : Promise.resolve(null)]);
       if (!t) {
@@ -162,5 +222,5 @@ export async function measurePieces(pieces: Piece[], read: Reader = mediaReader(
       return { ...p, w: t.w, h: t.h, tw: t.w, lw: l?.w ?? null };
     }),
   );
-  return out.filter((p): p is SizedPiece => !!p);
+  return out.filter((p) => p !== null) as (P & Dimensions)[];
 }

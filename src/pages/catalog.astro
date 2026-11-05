@@ -16,6 +16,7 @@ const pieces = await measurePieces(catalogPieces(cols, Object.fromEntries(cols.m
           href={workPath(p.slug, p.id)}
           aria-label={`${p.title}, ${p.collection}`}
           data-slug={p.slug}
+          data-id={p.id}
           data-w={p.w}
           data-h={p.h}
           data-weight={p.weight}
@@ -59,6 +60,8 @@ const pieces = await measurePieces(catalogPieces(cols, Object.fromEntries(cols.m
   .salon .tile:hover img, .salon .tile:hover video, .salon .tile:hover iframe { filter: brightness(1.08); }
   /* runtime state: positioned by src/scripts/catalog.ts */
   .salon.on { display: block; }
+  /* the browser is dealing a random wall from the pool: hold the page back for a moment instead of flashing the fallback */
+  .salon.pending { visibility: hidden; }
   .salon.on .tile { position: absolute; height: auto; max-width: none; }
 </style>
 <script src="../scripts/catalog.ts"></script>

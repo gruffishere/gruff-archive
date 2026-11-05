@@ -138,3 +138,29 @@ describe('measurePieces', () => {
     }
   });
 });
+
+describe('catalogPool', () => {
+  it('holds every non-generative work and at most 60 spread works per generative collection', async () => {
+    const { catalogPool } = await import('../../src/lib/catalog');
+    const big = [col('plain'), col('gen', { techniques: ['generative'] }), col('gen2', { techniques: ['generative'] })];
+    const pool = catalogPool(big, { plain: many(7, 'p'), gen: many(200, 'g'), gen2: many(12, 'h') });
+    expect(pool.filter((p) => p.slug === 'plain')).toHaveLength(7);
+    expect(pool.filter((p) => p.slug === 'gen')).toHaveLength(60);
+    expect(pool.filter((p) => p.slug === 'gen2')).toHaveLength(12);
+    expect(pool.every((p) => p.generative === (p.slug !== 'plain'))).toBe(true);
+    const ids = pool.filter((p) => p.slug === 'gen').map((p) => Number(p.id));
+    expect(ids[0]).toBeLessThanOrEqual(4);
+    expect(ids[59]).toBeGreaterThanOrEqual(197);
+  });
+  it('keeps one image per wall and skips works without media', async () => {
+    const { catalogPool } = await import('../../src/lib/catalog');
+    const dup = (id: string) => img(id, { image: { kind: 'image', thumb: '/media/ph-t.webp', large: '/media/ph-l.webp', file: null } as TokenOut['image'] });
+    const pool = catalogPool([col('a'), col('b')], { a: [dup('1'), dup('2'), img('3', { image: null })], b: [dup('4'), ...many(2, 'z')] });
+    expect(pool.map((p) => p.src).sort()).toEqual(['/media/ph-t.webp', '/media/z1-t.webp', '/media/z2-t.webp']);
+  });
+  it('turns a measured piece into a pool item with its href and srcset widths', async () => {
+    const { catalogPool, measurePieces, toPoolItem } = await import('../../src/lib/catalog');
+    const [p] = await measurePieces(catalogPool([col('a')], { a: [img('5')] }), async (src) => ({ w: src.includes('-l') ? 2000 : 1000, h: 500 }));
+    expect(toPoolItem(p!)).toMatchObject({ slug: 'a', id: '5', href: '/w/a/5/', w: 1000, h: 500, tw: 1000, lw: 2000, generative: false, kind: 'img' });
+  });
+});
