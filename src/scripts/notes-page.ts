@@ -48,10 +48,12 @@ const render = (notes: Note[]) => {
   statusEl.textContent = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}, newest first.`;
 };
 
+const known = new Set(['that key does not match', 'notes are not set up yet (see the deploy guide)', 'could not load right now']);
+
 const load = async (k: string, remember: boolean) => {
   err.textContent = '';
   try {
-    const res = await fetch('/api/notes', { headers: { authorization: `Bearer ${k}` }, cache: 'no-store' });
+    const res = await fetch('/api/notes', { headers: { authorization: `Bearer ${encodeURIComponent(k)}` }, cache: 'no-store' });
     if (res.status === 401) throw new Error('that key does not match');
     if (res.status === 503) throw new Error('notes are not set up yet (see the deploy guide)');
     if (!res.ok) throw new Error('could not load right now');
@@ -64,7 +66,7 @@ const load = async (k: string, remember: boolean) => {
     if (!remember && e instanceof Error && e.message.startsWith('that key')) store(null);
     gate.hidden = false;
     forget.hidden = true;
-    err.textContent = e instanceof Error ? e.message : 'could not load right now';
+    err.textContent = e instanceof Error && known.has(e.message) ? e.message : 'could not read notes';
   }
 };
 

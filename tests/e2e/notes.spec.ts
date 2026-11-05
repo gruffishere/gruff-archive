@@ -64,3 +64,11 @@ test('the notes page renders notes as text, never as html', async ({ page }) => 
   await expect(page.locator('#ledger img, #ledger b')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'forget key' })).toBeVisible();
 });
+
+test('an ignored card does not come back on another page in the same session', async ({ page }) => {
+  await checkPage(page, '/');
+  await expect(page.locator(card)).toBeVisible({ timeout: 8000 });
+  await page.goto('/about/');
+  await page.waitForTimeout(5500);
+  await expect(page.locator(card)).toBeHidden();
+});

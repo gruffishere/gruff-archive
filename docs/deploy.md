@@ -92,7 +92,7 @@ Bilmen gerekenler:
 
 - Bu sayfa menüde yoktur ve arama motorlarına kapalıdır. Adresini sen bilirsin.
 - Notlar senin Cloudflare hesabında kalır. Ücretsiz planın sınırları (günde 1.000 yazma, 100.000 okuma) bir sanat sitesi için çok geniştir.
-- IP adresi saklanmaz. Sadece kötüye kullanımı sınırlamak için (saatte en fazla 3 not) IP'nin geri döndürülemeyen bir özeti bir saat tutulur, sonra kendiliğinden silinir.
+- IP adresleri hiç kaydedilmez; yalnızca bir saatliğine, tekrar gönderimi sınırlamak için tuzlanmış bir özet tutulur.
 - Adımları yapmadan önce kutu görünür ama gönderim "could not send right now" der. Site bunun dışında normal çalışır.
 
 ## 7. Kendi domainin

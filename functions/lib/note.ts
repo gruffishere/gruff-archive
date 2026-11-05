@@ -52,11 +52,44 @@ export async function safeEqual(a: string, b: string): Promise<boolean> {
 
 const rand = () => hex(crypto.getRandomValues(new Uint8Array(6)).buffer);
 
+export const BODY_MAX = 4096;
+export const DAY_MAX = 150;
+const KEY_SPAN = 9999999999999;
+
+/** Keys count down, so a plain ascending list returns the newest note first. */
+export const noteKey = (ms: number) => `note:${String(Math.max(0, KEY_SPAN - ms)).padStart(13, '0')}:${rand()}`;
+
+/** IPv4 stays whole; an IPv6 address is reduced to its /64 prefix, since one household owns the whole range. */
+export function ipBucket(ip: string): string {
+  if (!ip.includes(':') || ip.includes('.')) return ip;
+  const [head, tail] = ip.split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail === undefined ? [] : tail ? tail.split(':') : [];
+  const groups = tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+  return groups.slice(0, 4).map((g) => (parseInt(g || '0', 16) || 0).toString(16)).join(':') + '::/64';
+}
+
 export const makeNoteHandler = (deps: { now?: () => number } = {}) => async function onRequestPost({ request, env }: Ctx): Promise<Response> {
   const now = deps.now ?? Date.now;
+  if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return json({ error: 'unsupported' }, 415);
+  let originHost = '';
+  try {
+    originHost = new URL(request.headers.get('origin') ?? '').host;
+  } catch {
+    // missing or malformed
+  }
+  if (!originHost || originHost !== new URL(request.url).host) return json({ error: 'forbidden' }, 403);
+  if (Number(request.headers.get('content-length') ?? 0) > BODY_MAX) return json({ error: 'too large' }, 413);
+  let raw: string;
+  try {
+    raw = await request.text();
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  if (raw.length > BODY_MAX) return json({ error: 'too large' }, 413);
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return json({ error: 'bad request' }, 400);
   }
@@ -65,44 +98,48 @@ export const makeNoteHandler = (deps: { now?: () => number } = {}) => async func
   const kv = env.NOTES;
   if (!kv) return json({ error: 'unavailable' }, 503);
 
-  const at = new Date(now()).toISOString();
+  const t = now();
+  const at = new Date(t).toISOString();
   const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
-  const rl = `rl:${await visitorHash(ip, at.slice(0, 10), env.NOTES_KEY)}`;
-  const used = Number((await kv.get(rl)) ?? 0) || 0;
-  if (used >= PER_HOUR) return json({ error: 'slow down' }, 429);
-
   const country = (request as Request & { cf?: { country?: string } }).cf?.country;
   const { text, name, page } = checked.note;
-  await kv.put(`note:${at}:${rand()}`, JSON.stringify({ text, name, page, at, ...(country ? { country } : {}) }));
-  await kv.put(rl, String(used + 1), { expirationTtl: WINDOW_S });
+  try {
+    const dayKey = `day:${at.slice(0, 10)}`;
+    const today = Number((await kv.get(dayKey)) ?? 0) || 0;
+    if (today >= DAY_MAX) return json({ error: 'slow down' }, 429);
+    const rl = `rl:${await visitorHash(ipBucket(ip), at.slice(0, 10), env.NOTES_KEY)}`;
+    const used = Number((await kv.get(rl)) ?? 0) || 0;
+    if (used >= PER_HOUR) return json({ error: 'slow down' }, 429);
+    await kv.put(noteKey(t), JSON.stringify({ text, name, page, at, ...(country ? { country } : {}) }));
+    await kv.put(rl, String(used + 1), { expirationTtl: WINDOW_S });
+    await kv.put(dayKey, String(today + 1), { expirationTtl: 86400 });
+  } catch {
+    return json({ error: 'unavailable' }, 503);
+  }
   return json({ ok: true }, 201);
 };
 
 export const makeNotesHandler = () => async function onRequestGet({ request, env }: Ctx): Promise<Response> {
   const m = /^Bearer (.+)$/.exec(request.headers.get('authorization') ?? '');
-  const key = env.NOTES_KEY;
-  // An unset key must never match anything, not even an empty token.
-  if (!key || !m || !(await safeEqual(m[1], key))) return json({ error: 'unauthorized' }, 401);
+  const key = env.NOTES_KEY?.trim();
+  // An unset key must never match anything, not even an empty token. The client percent-encodes the key so any language fits in a header.
+  if (!key || !m || !(await safeEqual(m[1], encodeURIComponent(key)))) return json({ error: 'unauthorized' }, 401);
   const kv = env.NOTES;
   if (!kv) return json({ error: 'unavailable' }, 503);
-
-  // KV lists keys in ascending order, and note keys start with an ISO time, so the newest are last.
-  const names: string[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < 50; page++) {
-    const r = await kv.list({ prefix: 'note:', cursor });
-    names.push(...r.keys.map((k) => k.name));
-    if (r.list_complete || !r.cursor) break;
-    cursor = r.cursor;
+  try {
+    // Keys count down from a fixed span, so the first 200 listed are the newest.
+    const { keys } = await kv.list({ prefix: 'note:', limit: SHOWN });
+    const values = await Promise.all(keys.map((k) => kv.get(k.name)));
+    const notes = values.flatMap((v) => {
+      try {
+        return v ? [JSON.parse(v) as { at?: string }] : [];
+      } catch {
+        return [];
+      }
+    });
+    notes.sort((a, b) => String(b.at ?? '').localeCompare(String(a.at ?? '')));
+    return json({ notes });
+  } catch {
+    return json({ error: 'unavailable' }, 503);
   }
-  const newest = names.slice(-SHOWN).reverse();
-  const values = await Promise.all(newest.map((n) => kv.get(n)));
-  const notes = values.flatMap((v) => {
-    try {
-      return v ? [JSON.parse(v) as unknown] : [];
-    } catch {
-      return [];
-    }
-  });
-  return json({ notes });
 };

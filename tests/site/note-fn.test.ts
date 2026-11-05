@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { makeNoteHandler, makeNotesHandler, validateNote, type KV } from '../../functions/lib/note';
+import { ipBucket, makeNoteHandler, makeNotesHandler, validateNote, type KV } from '../../functions/lib/note';
 
 /** A fake KV with put/get/list and TTL, on a clock the test controls. */
 const fakeKV = (clock: { now: number }) => {
   const m = new Map<string, { v: string; exp?: number }>();
   const live = () => [...m.entries()].filter(([, e]) => e.exp === undefined || e.exp > clock.now).sort(([a], [b]) => (a < b ? -1 : 1));
-  const kv: KV & { dump: () => [string, string][] } = {
+  const kv: KV & { dump: () => [string, string][]; lists: number } = {
+    lists: 0,
     async put(k, v, o) { m.set(k, { v, exp: o?.expirationTtl ? clock.now + o.expirationTtl * 1000 : undefined }); },
     async get(k) { const e = m.get(k); return e && (e.exp === undefined || e.exp > clock.now) ? e.v : null; },
     async list(o) {
+      kv.lists++;
       const all = live().filter(([k]) => k.startsWith(o?.prefix ?? ''));
       const start = o?.cursor ? Number(o.cursor) : 0;
       const limit = o?.limit ?? 1000;
@@ -28,8 +30,8 @@ const setup = () => {
   const env = { NOTES, NOTES_KEY: KEY };
   const post = makeNoteHandler({ now: () => clock.now });
   const get = makeNotesHandler();
-  const send = (body: unknown, ip = '203.0.113.7', e: object = env) =>
-    post({ request: new Request('https://gruff.test/api/note', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip }, body: typeof body === 'string' ? body : JSON.stringify(body) }), env: e as never });
+  const send = (body: unknown, ip: string | null = '203.0.113.7', e: object = env, headers: Record<string, string> = {}) =>
+    post({ request: new Request('https://gruff.test/api/note', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://gruff.test', ...(ip ? { 'cf-connecting-ip': ip } : {}), ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) }), env: e as never });
   const read = (auth?: string, e: object = env) =>
     get({ request: new Request('https://gruff.test/api/notes', { headers: auth ? { authorization: auth } : {} }), env: e as never });
   return { clock, NOTES, env, send, read };
@@ -65,13 +67,13 @@ describe('validateNote', () => {
 describe('POST /api/note', () => {
   it('stores a valid note under note:<iso>:<rand> with country and returns 201', async () => {
     const { NOTES } = setup();
-    const req = new Request('https://gruff.test/api/note', { method: 'POST', headers: { 'cf-connecting-ip': '203.0.113.7' }, body: JSON.stringify(ok) });
+    const req = new Request('https://gruff.test/api/note', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://gruff.test', 'cf-connecting-ip': '203.0.113.7' }, body: JSON.stringify(ok) });
     Object.defineProperty(req, 'cf', { value: { country: 'TR' } });
     const res = await makeNoteHandler({ now: () => Date.parse('2026-11-06T10:00:00Z') })({ request: req, env: { NOTES, NOTES_KEY: KEY } });
     expect(res.status).toBe(201);
     const notes = NOTES.dump().filter(([k]) => k.startsWith('note:'));
     expect(notes).toHaveLength(1);
-    expect(notes[0][0]).toMatch(/^note:2026-11-06T10:00:00\.000Z:[0-9a-f]+$/);
+    expect(notes[0][0]).toMatch(/^note:[0-9]{13}:[0-9a-f]+$/);
     expect(JSON.parse(notes[0][1])).toEqual({ text: 'hello there', name: '@visitor', page: '/catalog/', at: '2026-11-06T10:00:00.000Z', country: 'TR' });
   });
   it('omits country when unknown', async () => {
@@ -114,6 +116,51 @@ describe('POST /api/note', () => {
     const { send } = setup();
     expect((await send(ok)).headers.get('cache-control')).toBe('no-store');
   });
+  it('415 without a json content-type', async () => {
+    const { send, NOTES } = setup();
+    expect((await send(ok, '1.1.1.1', undefined, { 'content-type': 'text/plain' })).status).toBe(415);
+    expect((await send(ok, '1.1.1.1', undefined, { 'content-type': '' })).status).toBe(415);
+    expect(NOTES.dump()).toEqual([]);
+  });
+  it('403 for a foreign or missing Origin', async () => {
+    const { send } = setup();
+    expect((await send(ok, '1.1.1.1', undefined, { origin: 'https://evil.test' })).status).toBe(403);
+    expect((await send(ok, '1.1.1.1', undefined, { origin: 'not a url' })).status).toBe(403);
+    const missing = await makeNoteHandler()({ request: new Request('https://gruff.test/api/note', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(ok) }), env: setup().env as never });
+    expect(missing.status).toBe(403);
+  });
+  it('413 for an oversize body, by header or by length', async () => {
+    const { send } = setup();
+    expect((await send(ok, '1.1.1.1', undefined, { 'content-length': '5000' })).status).toBe(413);
+    expect((await send({ ...ok, text: 'x'.repeat(5000) })).status).toBe(413);
+  });
+  it('groups an IPv6 address by its /64', async () => {
+    expect(ipBucket('2001:db8:1:2:aaaa:bbbb:cccc:dddd')).toBe(ipBucket('2001:db8:1:2::1'));
+    expect(ipBucket('2001:db8:1:3::1')).not.toBe(ipBucket('2001:db8:1:2::1'));
+    expect(ipBucket('203.0.113.7')).toBe('203.0.113.7');
+    const { send } = setup();
+    for (let i = 1; i <= 3; i++) expect((await send(ok, `2001:db8:1:2::${i}`)).status).toBe(201);
+    expect((await send(ok, '2001:db8:1:2:ffff::9')).status).toBe(429);
+    expect((await send(ok, '2001:db8:1:9::1')).status).toBe(201);
+  });
+  it('429 past 150 notes a day, and resets the next day', async () => {
+    const { send, clock } = setup();
+    for (let i = 0; i < 150; i++) expect((await send(ok, `10.1.${Math.floor(i / 3)}.${i % 3}`)).status).toBe(201);
+    expect((await send(ok, '10.9.9.9')).status).toBe(429);
+    clock.now += 86400_000;
+    expect((await send(ok, '10.9.9.9')).status).toBe(201);
+  });
+  it('503 when KV throws', async () => {
+    const { send, NOTES, env } = setup();
+    NOTES.get = async () => { throw new Error('kv down'); };
+    expect((await send(ok, '1.1.1.1', env)).status).toBe(503);
+    const bad = { NOTES: { ...NOTES, get: async () => null, put: async () => { throw new Error('x'); } }, NOTES_KEY: KEY };
+    expect((await send(ok, '1.1.1.1', bad)).status).toBe(503);
+  });
+  it('still accepts a request without CF-Connecting-IP', async () => {
+    const { send } = setup();
+    expect((await send(ok, null)).status).toBe(201);
+  });
 });
 
 describe('GET /api/notes', () => {
@@ -125,16 +172,30 @@ describe('GET /api/notes', () => {
     expect((await read(`Bearer ${KEY}`, { NOTES: env.NOTES })).status).toBe(401);
     expect((await read('Bearer ', { ...env, NOTES_KEY: '' })).status).toBe(401);
   });
+  it('accepts a Turkish key sent percent-encoded', async () => {
+    const turkish = 'kış geldi çiçek açtı';
+    const { read, env } = setup();
+    const e = { ...env, NOTES_KEY: ` ${turkish} ` };
+    expect((await read(`Bearer ${encodeURIComponent(turkish)}`, e)).status).toBe(200);
+    expect((await read(`Bearer ${encodeURIComponent('kis geldi')}`, e)).status).toBe(401);
+  });
+  it('503 when KV throws on read', async () => {
+    const { read, env } = setup();
+    const bad = { ...env, NOTES: { ...env.NOTES, list: async () => { throw new Error('x'); } } };
+    expect((await read(`Bearer ${KEY}`, bad)).status).toBe(503);
+  });
   it('503 without the binding (with a good key)', async () => {
     const { read } = setup();
     expect((await read(`Bearer ${KEY}`, { NOTES_KEY: KEY })).status).toBe(503);
   });
   it('returns notes newest first, capped at 200', async () => {
-    const { send, read, clock } = setup();
+    const { send, read, clock, NOTES } = setup();
     for (let i = 0; i < 205; i++) {
       clock.now += 1000;
       expect((await send({ ...ok, text: `n${i}` }, `10.0.${Math.floor(i / 3)}.${i % 3}`)).status).toBe(201);
+      if (i % 140 === 139) clock.now += 86400_000;
     }
+    NOTES.lists = 0;
     const res = await read(`Bearer ${KEY}`);
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
@@ -143,6 +204,7 @@ describe('GET /api/notes', () => {
     expect(notes[0].text).toBe('n204');
     expect(notes[199].text).toBe('n5');
     expect(notes.map((n) => n.at)).toEqual([...notes.map((n) => n.at)].sort().reverse());
+    expect(NOTES.lists).toBe(1);
   });
   it('skips rate-limit keys and tolerates a corrupt value', async () => {
     const { send, read, NOTES } = setup();
