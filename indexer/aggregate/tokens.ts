@@ -114,7 +114,7 @@ export function buildTokens(i: TokenInputs): TokenOut[] {
       listing: i.listings.get(id) ?? null,
       supply: holders.reduce((sum, [, q]) => sum + Number(q), 0),
       holderCount: owners.filter((o) => isKeeperAddress(o.address, i.artist, i.excludeHolders)).length,
-      owners: owners.slice(0, 5),
+      owners,
       recent: evs.slice(0, 10),
     };
   });
