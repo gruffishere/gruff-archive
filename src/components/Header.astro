@@ -1,8 +1,8 @@
 ---
-export type NavName = 'index' | 'activity' | 'keepers' | 'techniques' | 'experiments' | 'about';
+export type NavName = 'index' | 'catalog' | 'activity' | 'keepers' | 'techniques' | 'experiments' | 'about';
 interface Props { current?: NavName }
 const { current } = Astro.props;
-const items: [NavName, string][] = [['index', '/'], ['activity', '/activity/'], ['keepers', '/keepers/'], ['techniques', '/techniques/'], ['experiments', '/experiments/'], ['about', '/about/']];
+const items: [NavName, string][] = [['index', '/'], ['catalog', '/catalog/'], ['activity', '/activity/'], ['keepers', '/keepers/'], ['techniques', '/techniques/'], ['experiments', '/experiments/'], ['about', '/about/']];
 ---
 <header class="hd page">
   <div class="brand">

@@ -296,3 +296,29 @@ test('a work page links to the original on arweave', async ({ page }) => {
   const link = page.getByRole('link', { name: 'original ↗' });
   await expect(link).toHaveAttribute('href', /^https:\/\/arweave\.net\//);
 });
+
+test('catalog hangs the works on one wall', async ({ page }, info) => {
+  await checkPage(page, '/catalog/');
+  const isPhone = info.project.name === 'phone';
+  if (isPhone) await page.getByRole('button', { name: 'menu' }).click();
+  await expect(page.locator('nav a[aria-current="page"]')).toHaveText('catalog');
+  const tiles = page.locator('#salon a.tile');
+  expect(await tiles.count()).toBeGreaterThan(20);
+  const slugs = await tiles.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.slug!));
+  const per = new Map<string, number>();
+  for (const s of slugs) per.set(s, (per.get(s) ?? 0) + 1);
+  const gen = new Set(['gruffters', 'facets', 'phigures', 'ovvn']);
+  for (const [s, n] of per) if (gen.has(s)) expect(n).toBeLessThanOrEqual(5);
+  expect(per.size).toBeGreaterThanOrEqual(10);
+  await expect(page.locator('#salon.on')).toBeVisible();
+  const boxes = (await tiles.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height }; })));
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = 0; j < i; j++) {
+      const a = boxes[i]!, b = boxes[j]!;
+      expect(a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5).toBe(false);
+    }
+  await expect(page.locator('#salon iframe[allow-same-origin], #salon iframe[sandbox*="allow-same-origin"]')).toHaveCount(0);
+  await tiles.first().scrollIntoViewIfNeeded();
+  await tiles.first().click();
+  await expect(page).toHaveURL(/\/w\/[^/]+\/[^/]+\/$/);
+});

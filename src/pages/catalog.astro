@@ -1,0 +1,59 @@
+---
+import Base from '../layouts/Base.astro';
+import { collections, tokensOf } from '../lib/data';
+import { catalogPieces, measurePieces } from '../lib/catalog';
+import { workPath } from '../lib/links';
+const cols = collections();
+const pieces = await measurePieces(catalogPieces(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]))));
+---
+<Base title="catalog — gruff" description="all the works on one wall." current="catalog">
+  <section class="page salon-page">
+    <h1 class="salon-sr">catalog</h1>
+    <div class="salon" id="salon">
+      {pieces.map((p) => (
+        <a
+          class="tile"
+          href={workPath(p.slug, p.id)}
+          aria-label={`${p.title}, ${p.collection}`}
+          data-slug={p.slug}
+          data-w={p.w}
+          data-h={p.h}
+          data-weight={p.weight}
+          style={`aspect-ratio:${p.w} / ${p.h}`}
+        >
+          {p.kind === 'img' ? (
+            <img
+              class:list={{ px: p.pixelated }}
+              src={p.src}
+              srcset={p.large && p.tw && p.lw ? `${p.src} ${p.tw}w, ${p.large} ${p.lw}w` : undefined}
+              sizes="(max-width: 767px) 50vw, 20vw"
+              alt=""
+              width={p.w}
+              height={p.h}
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <iframe src={p.src} title="" sandbox="allow-scripts" loading="lazy" tabindex="-1" aria-hidden="true" />
+          )}
+        </a>
+      ))}
+    </div>
+  </section>
+</Base>
+<style is:global>
+  .salon-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }
+  .salon-page { padding-top: 32px; }
+  /* no-JS fallback: a plain wrapped row of fixed-height pieces */
+  .salon { display: flex; flex-wrap: wrap; gap: 12px; position: relative; }
+  .salon .tile { display: block; height: 160px; flex: 0 0 auto; max-width: 100%; background: #050505; outline: 1px solid transparent; outline-offset: 0; }
+  .salon .tile img, .salon .tile iframe { display: block; width: 100%; height: 100%; border: 0; object-fit: cover; }
+  .salon .tile iframe { pointer-events: none; }
+  .salon .tile img.px { image-rendering: pixelated; }
+  .salon .tile:hover, .salon .tile:focus-visible { outline-color: var(--fg); }
+  .salon .tile:hover img, .salon .tile:hover iframe { filter: brightness(1.08); }
+  /* runtime state: positioned by src/scripts/catalog.ts */
+  .salon.on { display: block; }
+  .salon.on .tile { position: absolute; height: auto; max-width: none; }
+</style>
+<script src="../scripts/catalog.ts"></script>
