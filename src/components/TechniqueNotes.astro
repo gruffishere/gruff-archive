@@ -41,11 +41,13 @@ const withSize = await Promise.all(notes.map(async (n) => ({ ...n, sized: await 
   .imgs figure { margin: 0; flex: 0 1 360px; min-width: 0; max-width: 360px; }
   .imgs img { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
   .imgs figcaption { margin-top: 6px; font-size: 11px; }
-  .code { margin: 16px 0 0; padding: 12px 14px; border: 1px solid var(--line); overflow-x: auto; max-width: 100%; font-size: 11px; line-height: 1.5; color: var(--muted); }
+  .code { margin: 16px 0 0; padding: 12px 14px; border: 1px solid var(--line); overflow-x: auto; max-width: 100%; font-size: 11px; line-height: 1.5; color: var(--muted); text-transform: none; letter-spacing: 0; }
   .links { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 0 22px; }
   .links a { color: var(--muted); }
   @media (max-width: 767px) {
     .note { grid-template-columns: minmax(0, 1fr); gap: 8px 0; }
     .imgs figure { flex: 1 1 100%; max-width: none; }
+    /* several images sit two to a row on a phone, so a note never turns into a long scroll of full-width pictures */
+    .imgs:has(figure + figure) figure { flex: 0 1 calc(50% - 7px); max-width: calc(50% - 7px); }
   }
 </style>

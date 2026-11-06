@@ -4,17 +4,21 @@ import { LINE_DASH } from '../lib/technique-notes';
 interface Props { quarters: string[]; shares: Record<Technique, (number | null)[]>; tools: Record<Tool, boolean[]> }
 const { quarters, shares, tools } = Astro.props;
 
-/** One point per quarter at its centre; a null breaks the line, a lone point becomes a short tick. The tiny per-line offset keeps equal lines side by side. */
+/**
+ * One point per quarter at its centre; a null breaks the line, a lone point becomes a short tick. The tiny per-line
+ * offset keeps equal lines side by side. A 0 is drawn only where the line rises from or falls back to it, so a technique
+ * the artist was not using leaves the baseline clear instead of crowding it.
+ */
 function pathOf(values: (number | null)[], k: number): string {
   const f = (n: number) => +n.toFixed(2);
+  const on = values.map((v, i) => v !== null && (v > 0 || (values[i - 1] ?? 0) > 0 || (values[i + 1] ?? 0) > 0));
   let d = '';
   values.forEach((v, i) => {
-    if (v === null) return;
+    if (!on[i]) return;
     const x = i + 0.5;
-    const y = 100 - v + (k - 1.5) * 1.2;
-    const alone = values[i - 1] == null && values[i + 1] == null;
-    if (alone) d += `${d ? ' ' : ''}M${f(x - 0.3)} ${f(y)} L${f(x + 0.3)} ${f(y)}`;
-    else d += `${values[i - 1] == null ? (d ? ' M' : 'M') : ' L'}${f(x)} ${f(y)}`;
+    const y = 100 - v! + (k - 1.5) * 1.2;
+    if (!on[i - 1] && !on[i + 1]) d += `${d ? ' ' : ''}M${f(x - 0.3)} ${f(y)} L${f(x + 0.3)} ${f(y)}`;
+    else d += `${!on[i - 1] ? (d ? ' M' : 'M') : ' L'}${f(x)} ${f(y)}`;
   });
   return d;
 }
