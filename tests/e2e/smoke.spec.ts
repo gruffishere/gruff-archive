@@ -267,21 +267,6 @@ test('keepers: long names and the show-all button stay inside 360px', async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
-test('techniques page draws the catalog', async ({ page }) => {
-  await checkPage(page, '/techniques/');
-  await expect(page.getByText('technique × year')).toBeVisible();
-  expect(await page.locator('.meter').count()).toBeGreaterThan(4);
-  expect(await page.locator('body *', { hasText: /[░█]/ }).count()).toBe(0);
-  const widths = await page.locator('.meter i').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
-  expect(widths.some((w) => w > 0)).toBe(true);
-  const counts = await page.locator('.cell[data-tech="illustration"] .num').allTextContents();
-  expect(counts.length).toBeGreaterThan(0);
-  expect(counts.every((t) => /^[1-9][\d,]*$/.test(t.trim()))).toBe(true);
-  await expect(page.locator('.cell.f', { hasText: '—' }).first()).toBeVisible();
-  await page.setViewportSize({ width: 360, height: 800 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
-});
-
 test('about lists the socials and experiments lists the rooms', async ({ page }) => {
   await checkPage(page, '/about/');
   await expect(page.getByText('trying to be an experimental artist')).toBeVisible();

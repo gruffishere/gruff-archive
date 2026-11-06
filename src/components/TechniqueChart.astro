@@ -1,0 +1,73 @@
+---
+import { TECHNIQUES, TOOLS, type Technique, type Tool } from '../../indexer/tags';
+import { LINE_DASH } from '../lib/technique-notes';
+interface Props { quarters: string[]; shares: Record<Technique, (number | null)[]>; tools: Record<Tool, boolean[]> }
+const { quarters, shares, tools } = Astro.props;
+
+/** One point per quarter at its centre; a null breaks the line, a lone point becomes a short tick. The tiny per-line offset keeps equal lines side by side. */
+function pathOf(values: (number | null)[], k: number): string {
+  const f = (n: number) => +n.toFixed(2);
+  let d = '';
+  values.forEach((v, i) => {
+    if (v === null) return;
+    const x = i + 0.5;
+    const y = 100 - v + (k - 1.5) * 1.2;
+    const alone = values[i - 1] == null && values[i + 1] == null;
+    if (alone) d += `${d ? ' ' : ''}M${f(x - 0.3)} ${f(y)} L${f(x + 0.3)} ${f(y)}`;
+    else d += `${values[i - 1] == null ? (d ? ' M' : 'M') : ' L'}${f(x)} ${f(y)}`;
+  });
+  return d;
+}
+const yearTicks = (qs: string[]) => qs.flatMap((q, i) => (i === 0 || q.slice(0, 4) !== qs[i - 1]!.slice(0, 4) ? [{ i, year: q.slice(0, 4) }] : []));
+const first = quarters[0];
+const last = quarters.at(-1);
+const label = quarters.length
+  ? `share of each quarter's works by technique, one vote per collection, ${first} to ${last}; the table below holds the values`
+  : 'share of works by technique; no dated works yet';
+---
+<figure class="tchart" style={`--n:${quarters.length || 1}`}>
+  <ul class="legend">{TECHNIQUES.map((t) => <li><svg width="34" height="8" aria-hidden="true"><line x1="1" y1="4" x2="33" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray={LINE_DASH[t] || undefined} /></svg>{t}</li>)}</ul>
+  <div class="grid">
+    <span class="k y y100">100%</span><span class="k y y50">50%</span><span class="k y y0">0%</span>
+    <svg class="plot" viewBox={`0 0 ${quarters.length || 1} 100`} preserveAspectRatio="none" role="img" aria-label={label}>
+      {[0, 50, 100].map((v) => <line x1="0" x2={quarters.length || 1} y1={100 - v} y2={100 - v} class="gl" vector-effect="non-scaling-stroke" />)}
+      {TECHNIQUES.map((t, k) => <path d={pathOf(shares[t] ?? [], k)} class="ln" stroke-dasharray={LINE_DASH[t] || undefined} vector-effect="non-scaling-stroke" />)}
+    </svg>
+    <span class="k pad"></span>
+    <div class="years">{yearTicks(quarters).map(({ i, year }) => <span class="k" style={`left:calc(${(i + 0.5) / quarters.length} * 100%)`}>{year}</span>)}</div>
+    {TOOLS.map((tool) => (<><span class="k tool">{tool}</span><span class="cells">{(tools[tool] ?? []).map((on) => <i class:list={{ on }} />)}</span></>))}
+  </div>
+  <div class="sr"><table>
+    <caption>technique share and tools by quarter</caption>
+    <thead><tr><th>quarter</th>{TECHNIQUES.map((t) => <th>{t}</th>)}{TOOLS.map((t) => <th>{t}</th>)}</tr></thead>
+    <tbody>{quarters.map((q, i) => <tr><th>{q}</th>{TECHNIQUES.map((t) => <td>{shares[t]?.[i] == null ? 'no works' : `${shares[t][i]}%`}</td>)}{TOOLS.map((t) => <td>{tools[t]?.[i] ? 'yes' : 'no'}</td>)}</tr>)}</tbody>
+  </table></div>
+</figure>
+<style>
+  .tchart { margin: 0; }
+  .legend { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 26px; }
+  .legend li { display: inline-flex; align-items: center; gap: 10px; }
+  .grid { display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 0; position: relative; }
+  .plot { grid-column: 2; grid-row: 1 / span 3; width: 100%; height: 220px; display: block; overflow: visible; }
+  .y { grid-column: 1; text-align: right; padding-right: 12px; line-height: 1; font-size: 11px; }
+  .y100 { grid-row: 1; align-self: start; }
+  .y50 { grid-row: 2; align-self: center; }
+  .y0 { grid-row: 3; align-self: end; }
+  .grid { grid-template-rows: 1fr 1fr 1fr; }
+  .pad { grid-column: 1; }
+  .years { grid-column: 2; position: relative; height: 22px; margin-top: 8px; }
+  .years span { position: absolute; top: 0; transform: translateX(-50%); font-size: 11px; }
+  .ln { fill: none; stroke: var(--fg); stroke-width: 1.6; }
+  .gl { stroke: var(--line); stroke-width: 1; }
+  .tool { grid-column: 1; align-self: center; height: 22px; line-height: 22px; padding-right: 12px; text-align: right; font-size: 11px; white-space: nowrap; }
+  .cells { grid-column: 2; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 2px; height: 8px; align-self: center; margin: 7px 0; }
+  .cells i { display: block; }
+  .cells i.on { background: var(--fg); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (max-width: 767px) {
+    .grid { grid-template-columns: 96px minmax(0, 1fr); }
+    .plot { height: 180px; }
+    .tool { font-size: 10px; padding-right: 8px; }
+    .legend { gap: 8px 18px; }
+  }
+</style>

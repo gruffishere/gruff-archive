@@ -1,11 +1,33 @@
 ---
+import { readFileSync } from 'node:fs';
 import Base from '../layouts/Base.astro';
-import { collections } from '../lib/data';
-import { summary } from '../lib/techniques';
-const s = summary(collections());
+import TechniqueChart from '../components/TechniqueChart.astro';
+import TechniqueNotes from '../components/TechniqueNotes.astro';
+import { collections, tokensOf } from '../lib/data';
+import { ROOMS } from '../lib/rooms';
+import { techniqueNotes } from '../lib/technique-notes';
+import { summary, techniqueShares, timelineQuarters, toolCells } from '../lib/techniques';
+const cols = collections();
+const tokens = Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]));
+const quarters = timelineQuarters(cols, tokens, ROOMS);
+const shares = techniqueShares(cols, tokens, quarters);
+const tools = toolCells(cols, tokens, ROOMS, quarters);
+const s = summary(cols);
+const notes = techniqueNotes(cols);
+const excerpt = readFileSync('src/content/techniques/facets-onchain.txt', 'utf8').trimEnd();
+const fmt = (n: number) => n.toLocaleString('en-US');
 ---
 <Base title="techniques — gruff" current="techniques">
   <section class="page">
-    <p>{s.onChainPct}% on-chain · {s.oneOfOne} 1/1 works · {s.editionPieces} edition pieces</p>
+    <h2 class="k">techniques <span class="f">· one vote per collection, by quarter</span></h2>
+    <TechniqueChart quarters={quarters} shares={shares} tools={tools} />
+    <h2 class="k head2">methods</h2>
+    <TechniqueNotes notes={notes} excerpt={excerpt} />
+    <p class="k sum">{s.onChainPct}% on-chain · {fmt(s.oneOfOne)} 1/1 · {fmt(s.editionPieces)} edition pieces</p>
   </section>
 </Base>
+<style>
+  h2 { font-weight: 400; font-size: inherit; margin: 0 0 22px; }
+  .head2 { margin-top: 56px; margin-bottom: 14px; }
+  .sum { margin: 28px 0 0; }
+</style>
