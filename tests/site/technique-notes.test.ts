@@ -12,13 +12,10 @@ describe('technique notes', () => {
   it('keeps the ai note bare', () => {
     const ai = notes().find((n) => n.key === 'ai')!;
     expect(ai.images).toEqual([]);
-    expect(ai.links).toEqual([]);
     expect(ai.excerpt).toBeUndefined();
   });
-  it('starts the vector links with gruffters and lists four', () => {
-    const v = notes().find((n) => n.key === 'vector')!;
-    expect(v.links[0]!.href).toBe('/c/gruffters/');
-    expect(v.links).toHaveLength(4);
+  it('carries no links: the lanes above already lead to every collection (the artist, 2026-11-06)', () => {
+    for (const n of notes()) expect(n).not.toHaveProperty('links');
   });
   it('writes no em dash', () => {
     for (const n of notes()) {
@@ -49,13 +46,7 @@ describe('technique notes', () => {
     expect(td.images.find((i) => i.src.endsWith('td-xcopy.webp'))!.fit).toBe('contain');
     expect(notes().flatMap((n) => n.images).filter((i) => i.fit === 'contain')).toHaveLength(1);
   });
-  it('dates each method by the years its works span, so the tools are told under the chart, not in it', () => {
-    const y = Object.fromEntries(notes().map((n) => [n.key, n.years]));
-    expect(y.vector).toBe('2023–2026');
-    expect(y.photoshop).toBe('2023–2026');
-    expect(y.touchdesigner).toBe('2025–2026');
-    expect(y.pixel).toBe('2026');
-    expect(y.three).toBe('2026');
-    expect(y.ai).toBeUndefined();
+  it('carries no years: the lanes above already date everything (the artist, 2026-11-06)', () => {
+    for (const n of notes()) expect(n).not.toHaveProperty('years');
   });
 });
