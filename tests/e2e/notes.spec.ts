@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { checkPage } from './helpers';
 
-// a first-time visitor: the config's default state has the card already closed
+// a real visitor: the config's default state turns the card off for every other spec
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const card = '#note';
 
-test('the note card appears after the delay, and x hides it for good', async ({ page }) => {
+// the artist wants the card on every page load (2026-11-07): closing it only hides it until the next page or refresh
+test('the note card appears after the delay, x hides it, and it comes back on the next load', async ({ page }) => {
   await checkPage(page, '/');
   await expect(page.locator(card)).toBeHidden();
   await expect(page.locator(card)).toBeVisible({ timeout: 8000 });
@@ -16,8 +17,7 @@ test('the note card appears after the delay, and x hides it for good', async ({ 
   await page.getByRole('button', { name: 'close' }).click();
   await expect(page.locator(card)).toBeHidden();
   await page.reload();
-  await page.waitForTimeout(5000);
-  await expect(page.locator(card)).toBeHidden();
+  await expect(page.locator(card)).toBeVisible({ timeout: 8000 });
 });
 
 test('sending posts the note and shows the thank-you', async ({ page }) => {
@@ -65,10 +65,13 @@ test('the notes page renders notes as text, never as html', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'forget key' })).toBeVisible();
 });
 
-test('an ignored card does not come back on another page in the same session', async ({ page }) => {
+test('the card shows again on every page, even after a note was sent', async ({ page }) => {
+  await page.route('**/api/note', (route) => route.fulfill({ status: 201, contentType: 'application/json', body: '{"ok":true}' }));
   await checkPage(page, '/');
   await expect(page.locator(card)).toBeVisible({ timeout: 8000 });
+  await page.getByPlaceholder('a word, a thought, a hello').fill('hello');
+  await page.getByRole('button', { name: 'send' }).click();
+  await expect(page.getByText('thank you. gruff will read it.')).toBeVisible();
   await page.goto('/about/');
-  await page.waitForTimeout(5500);
-  await expect(page.locator(card)).toBeHidden();
+  await expect(page.locator(card)).toBeVisible({ timeout: 8000 });
 });
