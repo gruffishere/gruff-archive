@@ -18,7 +18,7 @@ git push -u origin main
 ```
 
 6. GitHub tarayıcıda giriş yapmanı isteyecek. Giriş yap ve izin ver.
-7. Medya dosyaları 363 MB. İlk gönderme birkaç dakika sürer. Bekle, normal.
+7. Medya dosyaları yaklaşık 490 MB (5.600 dosya). İlk gönderme birkaç dakika sürer. Bekle, normal.
 
 ## 1. OpenSea anahtarı
 
@@ -27,7 +27,7 @@ Anahtar, sitenin OpenSea'dan güncel fiyat ve Gruffters görsellerini çekmesini
 1. https://docs.opensea.io adresine git. Soldaki menüde **Getting Started** altındaki **API Keys** sayfasını aç (doğrudan adres: https://docs.opensea.io/reference/api-keys). Sayfa farklı görünürse sol üstteki arama kutusuna `API key` yaz. Orada ücretsiz bir anahtar iste (**Request API Key** / **Get API key**). OpenSea hesabınla giriş yapman gerekebilir. Anahtar bir uzun harf-rakam dizisidir; kapatmadan kopyala.
 2. GitHub'da deponu aç: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 3. Name: `OPENSEA_API_KEY`
-4. Secret kutusuna anahtarı yapıştır ve kaydet.
+4. Secret kutusuna anahtarı yapıştır ve kaydet. (Bilgisayarındaki `.env` dosyasına yazdığın anahtarın aynısını kullanabilirsin.)
 
 Anahtar hiçbir dosyaya yazılmaz.
 
