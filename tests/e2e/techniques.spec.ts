@@ -38,11 +38,19 @@ test('techniques page hangs every collection in its technique lanes, and tells t
     const a = boxes[i]!, b = boxes[j]!;
     expect(a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5, 'marks overlap').toBe(false);
   }
-  await expect(page.locator('article.note[data-key="photoshop"] .label')).toContainText(/photoshop · 20\d\d–20\d\d/);
-  await expect(page.locator('article.note')).toHaveCount(8);
-  await expect(page.locator('article.note[data-key="ai"] img')).toHaveCount(0);
-  await expect(page.locator('article.note[data-key="ai"] a')).toHaveCount(0);
-  const imgs = page.locator('article.note img');
+  // methods sit behind the lane they fed (the artist, 2026-11-06); ai stands apart, with no picture and no link
+  await expect(page.locator('section.behind')).toHaveCount(4);
+  await expect(page.locator('section.behind .bh .ln')).toHaveText(['vector illustration', 'glitch art', 'generative art', 'code art']);
+  await expect(page.locator('section.behind .method')).toHaveCount(7);
+  await expect(page.locator('.method[data-key="photoshop"] .ml')).toContainText(/photoshop · 20\d\d–20\d\d/);
+  await expect(page.locator('.ai[data-key="ai"]')).toHaveCount(1);
+  await expect(page.locator('.ai img, .ai a')).toHaveCount(0);
+  // every picture opens full size in a new tab
+  for (const a of await page.locator('.strip a.sq').all()) {
+    await expect(a).toHaveAttribute('target', '_blank');
+    await expect(a).toHaveAttribute('href', /^\/(techniques|exp)\//);
+  }
+  const imgs = page.locator('.strip img');
   for (let i = 0; i < (await imgs.count()); i++) {
     await imgs.nth(i).scrollIntoViewIfNeeded();
     await expect.poll(() => imgs.nth(i).evaluate((e) => (e as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
