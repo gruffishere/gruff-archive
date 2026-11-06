@@ -4,12 +4,15 @@ import { collections } from '../../src/lib/data';
 import { summary } from '../../src/lib/techniques';
 import { checkPage } from './helpers';
 
-test('techniques page draws the chart, the strip and the notes', async ({ page }) => {
+test('techniques page draws one chart of the four techniques, and tells the tools in the notes', async ({ page }) => {
   await checkPage(page, '/techniques/');
   const dashes = await page.locator('path.ln').evaluateAll((els) => els.map((e) => e.getAttribute('stroke-dasharray') ?? ''));
   expect(dashes).toHaveLength(4);
   expect(new Set(dashes).size).toBe(4);
-  await expect(page.locator('.tool')).toHaveCount(6);
+  // the tools are not rows under the chart any more (the artist, 2026-11-06): each line is one smooth piece
+  await expect(page.locator('.tchart .cells, .tchart .tool')).toHaveCount(0);
+  for (const d of await page.locator('path.ln').evaluateAll((els) => els.map((e) => e.getAttribute('d') ?? ''))) expect(d.match(/M/g)?.length ?? 0).toBeLessThanOrEqual(2);
+  await expect(page.locator('article.note[data-key="photoshop"] .label')).toContainText(/photoshop · 20\d\d–20\d\d/);
   await expect(page.locator('article.note')).toHaveCount(8);
   await expect(page.locator('article.note[data-key="ai"] img')).toHaveCount(0);
   await expect(page.locator('article.note[data-key="ai"] a')).toHaveCount(0);

@@ -12,7 +12,7 @@ const withSize = await Promise.all(notes.map(async (n) => ({ ...n, sized: await 
 <div class="notes">
   {withSize.map((n) => (
     <article class="note" data-key={n.key}>
-      <p class="k label">{n.label}</p>
+      <p class="k label">{n.label}{n.years && <span class="f"> · {n.years}</span>}</p>
       <div class="body">
         <p class="text lower">{n.text}</p>
         {n.sized.length > 0 && (

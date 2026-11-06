@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut, TokenOut } from '../../src/lib/data';
-import { quarterOf, quarterSpan, summary, techniqueShares, timelineQuarters, toolCells } from '../../src/lib/techniques';
+import { continuousLine, quarterOf, quarterSpan, summary, techniqueShares, timelineQuarters } from '../../src/lib/techniques';
 
 const col = (p: Partial<CollectionOut>) => ({ slug: 's', section: 'index', standard: 'erc721', techniques: ['vector illustration'], tools: [], works: 1, pieces: 1, ...p }) as CollectionOut;
 const tok = (at: string, supply = 1) => ({ supply, mint: { at } }) as TokenOut;
@@ -47,13 +47,18 @@ describe('techniqueShares', () => {
   });
 });
 
-describe('toolCells', () => {
-  it('fills a quarter when a collection minted then or a room is dated then', () => {
-    const cols = [col({ slug: 'a', tools: ['photoshop'] })];
-    const t = toolCells(cols, { a: [tok('2023-01-10T00:00:00.000Z')] }, [{ date: '2023-08-01', since: '2023-08', tools: ['three.js'] }], ['2023Q1', '2023Q2', '2023Q3']);
-    expect(t.photoshop).toEqual([true, false, false]);
-    expect(t['three.js']).toEqual([false, false, true]);
-    expect(t['on-chain']).toEqual([false, false, false]);
+describe('continuousLine', () => {
+  it('bridges quarters without mints, so the line runs in one piece (the artist, 2026-11-06)', () => {
+    expect(continuousLine([100, null, null, 40])).toEqual([100, 80, 60, 40]);
+    expect(continuousLine([73, null, null, 20, 0])).toEqual([73, 55, 38, 20, 0]);
+  });
+  it('is born at 0 the quarter before it first appears and ends at 0 after it is last used', () => {
+    expect(continuousLine([0, 0, 0, 42, 0, 0, 0])).toEqual([null, null, 0, 42, 0, null, null]);
+    expect(continuousLine([0, 0, null, 0, 55, 100])).toEqual([null, null, null, 0, 55, 100]);
+  });
+  it('draws nothing for a technique never used, and leaves empty edges empty', () => {
+    expect(continuousLine([0, null, 0])).toEqual([null, null, null]);
+    expect(continuousLine([null, 50, null])).toEqual([null, 50, null]);
   });
 });
 
@@ -61,5 +66,18 @@ describe('summary', () => {
   it('counts on-chain share, 1/1 works and edition pieces', () => {
     const cols = [col({ slug: 'a', works: 2 }), col({ slug: 'b', techniques: ['generative art', 'code art'], tools: ['on-chain'], works: 6 }), col({ slug: 'e', standard: 'erc1155', pieces: 40, works: 3 }), col({ slug: 'x', section: 'experiments', techniques: ['generative art'], works: 1 })];
     expect(summary(cols)).toEqual({ onChainPct: 50, oneOfOne: 2, editionPieces: 40 });
+  });
+});
+
+describe('smoothPath', () => {
+  it('draws a line in one piece with curves, and never leaves the 0..100 band', async () => {
+    const { smoothPath, yOf } = await import('../../src/lib/chart-path');
+    const d = smoothPath([100, null, null, 100, 10, 73, null, 20, 0], 0);
+    expect(d.match(/M/g)).toHaveLength(1);
+    expect(d).toContain(' C');
+    const ys = [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => Number(m[2]));
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(yOf(100, 0) - 0.01);
+    expect(Math.max(...ys)).toBeLessThanOrEqual(yOf(0, 0) + 0.01);
+    expect(smoothPath([0, 0, 0], 1)).toBe('');
   });
 });
