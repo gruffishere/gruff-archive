@@ -1,17 +1,43 @@
 import { expect, test } from '@playwright/test';
 import { isGenerative, isOnChain } from '../../indexer/tags';
-import { collections } from '../../src/lib/data';
-import { summary } from '../../src/lib/techniques';
+import { collections, tokensOf } from '../../src/lib/data';
+import { laneLayout, laneMarks, summary } from '../../src/lib/techniques';
 import { checkPage } from './helpers';
 
-test('techniques page draws one chart of the four techniques, and tells the tools in the notes', async ({ page }) => {
+const marks = () => {
+  const cols = collections();
+  return laneMarks(cols, Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)])));
+};
+
+test('techniques page hangs every collection in its technique lanes, and tells the tools in the notes', async ({ page }, info) => {
   await checkPage(page, '/techniques/');
-  const dashes = await page.locator('path.ln').evaluateAll((els) => els.map((e) => e.getAttribute('stroke-dasharray') ?? ''));
-  expect(dashes).toHaveLength(4);
-  expect(new Set(dashes).size).toBe(4);
-  // the tools are not rows under the chart any more (the artist, 2026-11-06): each line is one smooth piece
-  await expect(page.locator('.tchart .cells, .tchart .tool')).toHaveCount(0);
-  for (const d of await page.locator('path.ln').evaluateAll((els) => els.map((e) => e.getAttribute('d') ?? ''))) expect(d.match(/M/g)?.length ?? 0).toBeLessThanOrEqual(2);
+  // the artist chose lanes (2026-11-06): quarters on a wide screen, years on a phone
+  const unit = info.project.name === 'phone' ? 'year' : 'quarter';
+  const lanes = page.locator(`.lanes.${unit}`);
+  await expect(lanes).toBeVisible();
+  await expect(page.locator(`.lanes.${unit === 'year' ? 'quarter' : 'year'}`)).toBeHidden();
+  await expect(lanes.locator('.lname')).toHaveText([/^vector illustration/, /^glitch art/, /^generative art/, /^code art/]);
+  const ms = marks();
+  const l = laneLayout(ms, unit);
+  await expect(lanes.locator('.mark')).toHaveCount(ms.reduce((s, m) => s + m.techniques.length, 0));
+  await expect(lanes.locator('.links path')).toHaveCount(l.links.length);
+  // every connector runs in the gutter beside the squares (never across a mark) and ends level with the two it joins
+  const loose = await lanes.evaluate((root) => {
+    const sq = [...root.querySelectorAll('.mark i')].map((i) => i.getBoundingClientRect());
+    return [...root.querySelectorAll('.links path')].filter((p) => {
+      const b = p.getBoundingClientRect();
+      const beside = sq.filter((s) => s.left >= b.right - 0.5 && s.left - b.right < 4);
+      const level = (y: number) => beside.some((s) => Math.abs(s.top + s.height / 2 - y) < 1.5);
+      return !(level(b.top) && level(b.bottom));
+    }).length;
+  });
+  expect(loose).toBe(0);
+  // marks never overlap each other
+  const boxes = await lanes.locator('.mark').evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((b) => ({ x: b.left, y: b.top, w: b.width, h: b.height })));
+  for (let i = 0; i < boxes.length; i++) for (let j = 0; j < i; j++) {
+    const a = boxes[i]!, b = boxes[j]!;
+    expect(a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5, 'marks overlap').toBe(false);
+  }
   await expect(page.locator('article.note[data-key="photoshop"] .label')).toContainText(/photoshop · 20\d\d–20\d\d/);
   await expect(page.locator('article.note')).toHaveCount(8);
   await expect(page.locator('article.note[data-key="ai"] img')).toHaveCount(0);

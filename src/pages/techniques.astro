@@ -1,16 +1,14 @@
 ---
 import { readFileSync } from 'node:fs';
 import Base from '../layouts/Base.astro';
-import TechniqueChart from '../components/TechniqueChart.astro';
+import TechniqueLanes from '../components/TechniqueLanes.astro';
 import TechniqueNotes from '../components/TechniqueNotes.astro';
 import { collections, tokensOf } from '../lib/data';
 import { techniqueNotes } from '../lib/technique-notes';
-import { summary, techniqueShares, timelineQuarters } from '../lib/techniques';
+import { laneMarks, summary } from '../lib/techniques';
 const cols = collections();
 const tokens = Object.fromEntries(cols.map((c) => [c.slug, tokensOf(c.slug)]));
-// the chart spans the minted works only; the tools and the rooms are told in the notes below it
-const quarters = timelineQuarters(cols, tokens, []);
-const shares = techniqueShares(cols, tokens, quarters);
+const marks = laneMarks(cols, tokens);
 const s = summary(cols);
 const notes = techniqueNotes(cols);
 const excerpt = readFileSync('src/content/techniques/facets-onchain.txt', 'utf8').trimEnd();
@@ -18,8 +16,8 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 ---
 <Base title="techniques — gruff" current="techniques">
   <section class="page">
-    <h2 class="k">techniques <span class="f">· one vote per collection, by quarter</span></h2>
-    <TechniqueChart quarters={quarters} shares={shares} />
+    <h2 class="k">techniques <span class="f">· four lanes, every collection where it first appeared</span></h2>
+    <TechniqueLanes marks={marks} />
     <h2 class="k head2">methods</h2>
     <TechniqueNotes notes={notes} excerpt={excerpt} />
     <p class="k sum">{s.onChainPct}% on-chain · {fmt(s.oneOfOne)} 1/1 · {fmt(s.editionPieces)} edition pieces</p>

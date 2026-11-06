@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut, TokenOut } from '../../src/lib/data';
-import { continuousLine, quarterOf, quarterSpan, summary, techniqueShares, timelineQuarters } from '../../src/lib/techniques';
+import { laneLayout, laneMarks, markSize, quarterOf, quarterSpan, summary } from '../../src/lib/techniques';
 
-const col = (p: Partial<CollectionOut>) => ({ slug: 's', section: 'index', standard: 'erc721', techniques: ['vector illustration'], tools: [], works: 1, pieces: 1, ...p }) as CollectionOut;
+const col = (p: Partial<CollectionOut>) => ({ code: 'AAA', slug: 's', title: 'S', section: 'index', standard: 'erc721', techniques: ['vector illustration'], tools: [], works: 1, pieces: 1, ...p }) as CollectionOut;
 const tok = (at: string, supply = 1) => ({ supply, mint: { at } }) as TokenOut;
-const many = (n: number, at: string) => Array.from({ length: n }, () => tok(at));
 
 describe('quarters', () => {
   it('names a quarter and spans quarters inclusively', () => {
@@ -14,51 +13,75 @@ describe('quarters', () => {
     expect(quarterSpan('2024Q4', '2025Q2')).toEqual(['2024Q4', '2025Q1', '2025Q2']);
     expect(quarterSpan('2025Q1', '2025Q1')).toEqual(['2025Q1']);
   });
-  it('runs from the first dated work or room to the last', () => {
-    const cols = [col({ slug: 'a' })];
-    expect(timelineQuarters(cols, { a: [tok('2023-02-01T00:00:00.000Z')] }, [{ date: '2023-11-30', since: '2023-11' }])).toEqual(['2023Q1', '2023Q2', '2023Q3', '2023Q4']);
-    expect(timelineQuarters([], {}, [])).toEqual([]);
+});
+
+describe('laneMarks', () => {
+  it('places every collection once, at its first dated mint, oldest first', () => {
+    const cols = [
+      col({ code: 'BBB', slug: 'b', title: 'B', techniques: ['glitch art'], works: 24 }),
+      col({ code: 'AAA', slug: 'a', title: 'A', works: 2 }),
+      col({ code: 'NON', slug: 'n' }),
+      col({ code: 'HID', slug: 'h', section: 'hidden' as CollectionOut['section'] }),
+    ];
+    const marks = laneMarks(cols, {
+      a: [tok('2023-02-01T00:00:00.000Z'), tok('2023-01-10T00:00:00.000Z')],
+      b: [tok('2025-05-01T00:00:00.000Z'), tok('2025-04-02T00:00:00.000Z', 0)],
+      n: [],
+      h: [tok('2023-01-01T00:00:00.000Z')],
+    });
+    expect(marks.map((m) => [m.code, m.debut])).toEqual([['AAA', '2023-01'], ['BBB', '2025-05']]);
+    expect(marks[1]).toMatchObject({ slug: 'b', title: 'B', works: 24, techniques: ['glitch art'] });
   });
 });
 
-describe('techniqueShares', () => {
-  const Q = ['2023Q1', '2023Q2', '2023Q3'];
-  it('gives every collection one vote, whatever its size', () => {
-    const cols = [col({ slug: 'big', techniques: ['generative art'] }), col({ slug: 'one', techniques: ['vector illustration'] })];
-    const s = techniqueShares(cols, { big: many(673, '2023-02-01T00:00:00.000Z'), one: [tok('2023-03-01T00:00:00.000Z')] }, Q);
-    expect(s['generative art'][0]).toBe(50);
-    expect(s['vector illustration'][0]).toBe(50);
-  });
-  it('counts a collection fully on each of its techniques', () => {
-    const s = techniqueShares([col({ slug: 'p', techniques: ['vector illustration', 'glitch art'] })], { p: [tok('2023-05-01T00:00:00.000Z')] }, Q);
-    expect(s['vector illustration'][1]).toBe(100);
-    expect(s['glitch art'][1]).toBe(100);
-    expect(s['code art'][1]).toBe(0);
-  });
-  it('leaves a quarter with no mints empty, not zero, and skips burned or undated tokens', () => {
-    const s = techniqueShares([col({ slug: 'a' })], { a: [tok('2023-01-10T00:00:00.000Z'), tok('2023-02-10T00:00:00.000Z', 0), { supply: 1, mint: null } as unknown as TokenOut] }, Q);
-    expect(s['vector illustration']).toEqual([100, null, null]);
-  });
-  it('splits a collection across the quarters it minted in', () => {
-    const cols = [col({ slug: 'a', techniques: ['glitch art'] }), col({ slug: 'b', techniques: ['code art'] })];
-    const s = techniqueShares(cols, { a: [tok('2023-01-10T00:00:00.000Z'), tok('2023-04-10T00:00:00.000Z')], b: [tok('2023-04-11T00:00:00.000Z')] }, Q);
-    expect(s['glitch art']).toEqual([100, 33, null]);
-    expect(s['code art']).toEqual([0, 67, null]);
+describe('markSize', () => {
+  it('grows with the works, slowly, from 4 to about 14 px', () => {
+    expect(markSize(1)).toBe(4);
+    expect(markSize(10)).toBe(7);
+    expect(markSize(673)).toBe(12);
+    expect(markSize(2222)).toBe(14);
+    expect(markSize(0)).toBe(4);
   });
 });
 
-describe('continuousLine', () => {
-  it('bridges quarters without mints, so the line runs in one piece (the artist, 2026-11-06)', () => {
-    expect(continuousLine([100, null, null, 40])).toEqual([100, 80, 60, 40]);
-    expect(continuousLine([73, null, null, 20, 0])).toEqual([73, 55, 38, 20, 0]);
+describe('laneLayout', () => {
+  const marks = laneMarks(
+    [
+      col({ code: 'ANT', slug: 'ant' }),
+      col({ code: 'BLS', slug: 'bls' }),
+      col({ code: 'GRT', slug: 'grt', techniques: ['generative art', 'vector illustration'], works: 673 }),
+      col({ code: 'FCT', slug: 'fct', techniques: ['generative art', 'code art'], works: 2222 }),
+    ],
+    { ant: [tok('2023-01-05T00:00:00Z')], bls: [tok('2023-02-05T00:00:00Z')], grt: [tok('2023-10-05T00:00:00Z')], fct: [tok('2026-09-05T00:00:00Z')] },
+  );
+  it('spans whole years in quarters, and stacks a lane cell oldest first', () => {
+    const l = laneLayout(marks, 'quarter');
+    expect(l.columns).toHaveLength(16);
+    expect(l.columns[0]).toBe('2023Q1');
+    expect(l.columns.at(-1)).toBe('2026Q4');
+    const vector = l.lanes.find((x) => x.technique === 'vector illustration')!;
+    expect(vector.rows).toBe(2);
+    expect(vector.cells[0]!.map((m) => m.code)).toEqual(['ANT', 'BLS']);
+    expect(l.lanes.find((x) => x.technique === 'glitch art')!.rows).toBe(0);
   });
-  it('is born at 0 the quarter before it first appears and ends at 0 after it is last used', () => {
-    expect(continuousLine([0, 0, 0, 42, 0, 0, 0])).toEqual([null, null, 0, 42, 0, null, null]);
-    expect(continuousLine([0, 0, null, 0, 55, 100])).toEqual([null, null, null, 0, 55, 100]);
+  it('puts a collection with two techniques in both lanes, and records where, for the connector', () => {
+    const l = laneLayout(marks, 'quarter');
+    expect(l.at['GRT|vector illustration']).toEqual({ col: 3, row: 0 });
+    expect(l.at['GRT|generative art']).toEqual({ col: 3, row: 0 });
+    expect(l.at['FCT|code art']).toEqual({ col: 14, row: 0 });
+    expect(l.links).toEqual([
+      { code: 'GRT', from: 'vector illustration', to: 'generative art' },
+      { code: 'FCT', from: 'generative art', to: 'code art' },
+    ]);
   });
-  it('draws nothing for a technique never used, and leaves empty edges empty', () => {
-    expect(continuousLine([0, null, 0])).toEqual([null, null, null]);
-    expect(continuousLine([null, 50, null])).toEqual([null, 50, null]);
+  it('folds into years for narrow screens', () => {
+    const l = laneLayout(marks, 'year');
+    expect(l.columns).toEqual(['2023', '2024', '2025', '2026']);
+    expect(l.lanes.find((x) => x.technique === 'vector illustration')!.cells[0]!.map((m) => m.code)).toEqual(['ANT', 'BLS', 'GRT']);
+    expect(l.at['FCT|generative art']).toEqual({ col: 3, row: 0 });
+  });
+  it('is empty without marks', () => {
+    expect(laneLayout([], 'quarter')).toMatchObject({ columns: [], links: [] });
   });
 });
 
@@ -66,18 +89,5 @@ describe('summary', () => {
   it('counts on-chain share, 1/1 works and edition pieces', () => {
     const cols = [col({ slug: 'a', works: 2 }), col({ slug: 'b', techniques: ['generative art', 'code art'], tools: ['on-chain'], works: 6 }), col({ slug: 'e', standard: 'erc1155', pieces: 40, works: 3 }), col({ slug: 'x', section: 'experiments', techniques: ['generative art'], works: 1 })];
     expect(summary(cols)).toEqual({ onChainPct: 50, oneOfOne: 2, editionPieces: 40 });
-  });
-});
-
-describe('smoothPath', () => {
-  it('draws a line in one piece with curves, and never leaves the 0..100 band', async () => {
-    const { smoothPath, yOf } = await import('../../src/lib/chart-path');
-    const d = smoothPath([100, null, null, 100, 10, 73, null, 20, 0], 0);
-    expect(d.match(/M/g)).toHaveLength(1);
-    expect(d).toContain(' C');
-    const ys = [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => Number(m[2]));
-    expect(Math.min(...ys)).toBeGreaterThanOrEqual(yOf(100, 0) - 0.01);
-    expect(Math.max(...ys)).toBeLessThanOrEqual(yOf(0, 0) + 0.01);
-    expect(smoothPath([0, 0, 0], 1)).toBe('');
   });
 });

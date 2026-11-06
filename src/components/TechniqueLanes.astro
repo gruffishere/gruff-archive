@@ -1,0 +1,90 @@
+---
+import { TECHNIQUES } from '../../indexer/tags';
+import { laneLayout, markSize, type LaneMark } from '../lib/techniques';
+interface Props { marks: LaneMark[] }
+const { marks } = Astro.props;
+
+// Fixed px rhythm, so the connector overlay can be computed here and lands exactly on the marks.
+const AXIS = 26;
+const HEAD = 30;
+const ROW = 18;
+const PAD = 14;
+// Squares start INSET px into their column; the gutter before them carries the connectors, so a line never crosses a mark.
+const INSET = 12;
+
+const variants = (['quarter', 'year'] as const).map((unit) => {
+  const l = laneLayout(marks, unit);
+  const n = Math.max(1, l.columns.length);
+  let top = AXIS;
+  const lanes = l.lanes.map((lane) => {
+    const h = HEAD + Math.max(1, lane.rows) * ROW + PAD;
+    const out = { ...lane, top, h, count: Object.values(lane.cells).reduce((s, c) => s + c.length, 0) };
+    top += h;
+    return out;
+  });
+  const laneTop = Object.fromEntries(lanes.map((x) => [x.technique, x.top]));
+  const pct = (col: number) => `${((col / n) * 100).toFixed(4)}%`;
+  const centre = (code: string, technique: string) => {
+    const p = l.at[`${code}|${technique}`]!;
+    return { col: p.col, y: laneTop[technique]! + HEAD + p.row * ROW + ROW / 2 };
+  };
+  const size = Object.fromEntries(marks.map((m) => [m.code, markSize(m.works)]));
+  // Each connector leaves its upper square sideways, runs down its own track in the column's gutter, and enters the
+  // lower square from the side; two connectors in one column take two tracks.
+  const tracks: Record<number, number> = {};
+  const links = l.links.map(({ code, from, to }) => {
+    const a = centre(code, from);
+    const b = centre(code, to);
+    const j = (tracks[a.col] = (tracks[a.col] ?? -1) + 1);
+    return { x: pct(a.col), gx: 3 + 3 * j, y1: a.y, y2: b.y };
+  });
+  const years = l.columns.flatMap((c, i) => (i === 0 || c.slice(0, 4) !== (l.columns[i - 1] ?? '').slice(0, 4) ? [{ left: pct(i), year: c.slice(0, 4) }] : []));
+  return { unit, n, lanes, links, years, height: top, pct, size };
+})
+const label = (m: LaneMark) => `${m.title.toLowerCase()} · ${m.works.toLocaleString('en-US')} ${m.works === 1 ? 'work' : 'works'} · ${m.debut.slice(5, 7)}.${m.debut.slice(0, 4)}`;
+---
+<figure class="tlanes">
+  <p class="k key">each square is a collection where it first appeared; it grows with the works. a dotted line joins a collection made with two techniques.</p>
+  {variants.map((v) => (
+    <div class:list={['lanes', v.unit]} style={`height:${v.height}px`} aria-hidden="true">
+      {v.years.map((y) => <><span class="guide" style={`left:${y.left}`} /><span class="k yr" style={`left:${y.left}`}>{y.year}</span></>)}
+      {v.lanes.map((lane) => (
+        <section class="lane" style={`top:${lane.top}px;height:${lane.h}px`}>
+          <p class="k lname">{lane.technique} <span class="f">· {lane.count}</span></p>
+        </section>
+      ))}
+      <svg class="links" width="100%" height={v.height}>
+        {v.links.map((k) => <svg x={k.x} y="0" overflow="visible"><path d={`M${INSET - 2} ${k.y1} H${k.gx} V${k.y2} H${INSET - 2}`} /></svg>)}
+      </svg>
+      {v.lanes.flatMap((lane) => Object.entries(lane.cells).flatMap(([col, stack]) => stack.map((m, row) => (
+        <span class="mark" style={`left:calc(${v.pct(Number(col))} + ${INSET}px);top:${lane.top + HEAD + row * ROW}px`} title={label(m)}>
+          <i style={`width:${v.size[m.code]}px;height:${v.size[m.code]}px`} /><b>{m.code}</b>
+        </span>
+      ))))}
+    </div>
+  ))}
+  <ul class="sr">
+    {TECHNIQUES.map((t) => <li>{t}: {marks.filter((m) => m.techniques.includes(t)).map((m) => `${m.title.toLowerCase()} (${m.debut.slice(0, 4)})`).join(', ') || 'none yet'}</li>)}
+  </ul>
+</figure>
+<style>
+  .tlanes { margin: 0; }
+  .key { margin: 0 0 22px; max-width: 70ch; text-transform: none; color: var(--dim); }
+  .lanes { position: relative; width: 100%; }
+  .lanes.year { display: none; }
+  @media (max-width: 999px) {
+    .lanes.quarter { display: none; }
+    .lanes.year { display: block; }
+  }
+  .guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted var(--line); }
+  .yr { position: absolute; top: 0; padding-left: 6px; font-size: 11px; line-height: 16px; }
+  .lane { position: absolute; left: 0; right: 0; border-bottom: 1px solid var(--line); }
+  /* the lane name sits above the guides and connectors that pass behind it */
+  .lname { position: absolute; z-index: 1; left: 0; top: 8px; margin: 0; padding-right: 8px; background: var(--bg, #000); font-size: 11px; white-space: nowrap; }
+  .links { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .links path { fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+  .mark { position: absolute; display: inline-flex; align-items: center; gap: 6px; height: 18px; white-space: nowrap; font-size: 11px; line-height: 1; }
+  .mark i { display: block; flex: none; background: var(--fg); }
+  .mark b { font-weight: 400; letter-spacing: .04em; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; }
+</style>
