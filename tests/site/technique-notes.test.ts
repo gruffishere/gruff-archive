@@ -31,6 +31,24 @@ describe('technique notes', () => {
       expect(existsSync(`public${i.src}`), i.src).toBe(true);
     }
   });
+  it('sets each method behind the lane it fed (the artist, 2026-11-06), with ai standing apart', () => {
+    const lane = Object.fromEntries(notes().map((n) => [n.key, n.lane]));
+    expect(lane).toEqual({
+      vector: 'vector illustration',
+      photoshop: 'vector illustration',
+      touchdesigner: 'glitch art',
+      mathematics: 'generative art',
+      pixel: 'code art',
+      three: 'code art',
+      onchain: 'code art',
+      ai: null,
+    });
+  });
+  it('keeps the xcopy message whole: it is a screenshot of words, so it is fitted, not cropped', () => {
+    const td = notes().find((n) => n.key === 'touchdesigner')!;
+    expect(td.images.find((i) => i.src.endsWith('td-xcopy.webp'))!.fit).toBe('contain');
+    expect(notes().flatMap((n) => n.images).filter((i) => i.fit === 'contain')).toHaveLength(1);
+  });
   it('dates each method by the years its works span, so the tools are told under the chart, not in it', () => {
     const y = Object.fromEntries(notes().map((n) => [n.key, n.years]));
     expect(y.vector).toBe('2023–2026');
