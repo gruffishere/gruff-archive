@@ -585,3 +585,13 @@ test('the dive bar room shows stills and the artist\'s commentary', async ({ pag
   expect(await page.locator('.commentary p:not(.head):not(.label)').first().evaluate((el) => getComputedStyle(el).textTransform)).toBe('none');
   await expect(page.locator('.commentary')).toContainText("Maybe's dive bar is the 6529 Brain wave");
 });
+
+test('every page carries the g icons, and each icon file is served', async ({ page, request }) => {
+  await checkPage(page, '/');
+  await expect(page.locator('head link[rel="icon"][href="/favicon.svg"]')).toHaveCount(1);
+  await expect(page.locator('head link[rel="icon"][href="/favicon.ico"]')).toHaveCount(1);
+  await expect(page.locator('head link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/apple-touch-icon.png');
+  for (const p of ['/favicon.svg', '/favicon.ico', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/site.webmanifest']) {
+    expect((await request.get(p)).status(), p).toBe(200);
+  }
+});
