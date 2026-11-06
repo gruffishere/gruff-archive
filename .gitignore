@@ -15,3 +15,6 @@ dist/
 .astro/
 test-results/
 playwright-report/
+
+# local Claude Code settings (machine paths)
+.claude/
