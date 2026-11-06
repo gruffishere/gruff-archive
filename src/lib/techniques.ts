@@ -1,12 +1,10 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
 import { TECHNIQUES, isGenerative, isOnChain, type Technique } from '../../indexer/tags';
-import type { Room } from './rooms';
 
 /** Every collection, the experiments included: no work silently drops out of the page. */
 const shown = (cols: CollectionOut[]) => cols.filter((c) => c.section === 'index' || c.section === 'experiments');
 const dated = (tokens: TokenOut[] = []) => tokens.filter((t) => t.supply > 0 && !!t.mint?.at);
-const roomDay = (r: Pick<Room, 'date' | 'since'>) => r.date ?? `${r.since}-01`;
 
 export const quarterOf = (iso: string) => `${iso.slice(0, 4)}Q${Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1}`;
 
@@ -17,43 +15,65 @@ export function quarterSpan(from: string, to: string): string[] {
   return out;
 }
 
-export function timelineQuarters(cols: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>, rooms: Pick<Room, 'date' | 'since'>[]): string[] {
-  const qs = [...shown(cols).flatMap((c) => dated(tokensBySlug[c.slug]).map((t) => quarterOf(t.mint!.at))), ...rooms.map((r) => quarterOf(roomDay(r)))].sort();
-  return qs.length ? quarterSpan(qs[0]!, qs[qs.length - 1]!) : [];
+/** One collection on the techniques lanes: where it first appeared, and with which techniques. */
+export interface LaneMark {
+  code: string;
+  slug: string;
+  title: string;
+  works: number;
+  /** YYYY-MM of its first dated mint. */
+  debut: string;
+  techniques: Technique[];
 }
 
-/** Each collection is one vote: its dated tokens share a weight of 1 across the quarters they were minted in. */
-export function techniqueShares(cols: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>, quarters: string[]): Record<Technique, (number | null)[]> {
-  const at = new Map(quarters.map((q, i) => [q, i]));
-  const total = quarters.map(() => 0);
-  const per = Object.fromEntries(TECHNIQUES.map((t) => [t, quarters.map(() => 0)])) as Record<Technique, number[]>;
-  for (const c of shown(cols)) {
-    const ts = dated(tokensBySlug[c.slug]);
-    for (const t of ts) {
-      const i = at.get(quarterOf(t.mint!.at));
-      if (i === undefined) continue;
-      total[i]! += 1 / ts.length;
-      for (const tech of c.techniques) if (tech in per) per[tech as Technique][i]! += 1 / ts.length;
+/** Every shown collection with a dated mint, at its debut, oldest first (then by code). */
+export function laneMarks(cols: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>): LaneMark[] {
+  return shown(cols)
+    .flatMap((c) => {
+      const first = dated(tokensBySlug[c.slug]).map((t) => t.mint!.at).sort()[0];
+      if (!first) return [];
+      const techniques = TECHNIQUES.filter((t) => c.techniques.includes(t));
+      return [{ code: c.code, slug: c.slug, title: c.title, works: c.works, debut: first.slice(0, 7), techniques }];
+    })
+    .sort((a, b) => a.debut.localeCompare(b.debut) || a.code.localeCompare(b.code));
+}
+
+/** The side of a mark's square in px: it grows with the works, slowly (1 work → 4, 10 → 7, 2,222 → 14). */
+export const markSize = (works: number) => Math.round(4 + 3 * Math.log10(Math.max(1, works)));
+
+export interface LaneLayout {
+  /** 'YYYYQn' per quarter, or 'YYYY' per year, covering whole years from the first debut to the last. */
+  columns: string[];
+  lanes: { technique: Technique; rows: number; cells: Record<number, LaneMark[]> }[];
+  /** Where each mark sits, keyed `${code}|${technique}`. */
+  at: Record<string, { col: number; row: number }>;
+  /** A collection with several techniques joins its marks lane to lane, in lane order. */
+  links: { code: string; from: Technique; to: Technique }[];
+}
+
+export function laneLayout(marks: LaneMark[], unit: 'quarter' | 'year'): LaneLayout {
+  if (!marks.length) return { columns: [], lanes: TECHNIQUES.map((technique) => ({ technique, rows: 0, cells: {} })), at: {}, links: [] };
+  const y0 = Number(marks[0]!.debut.slice(0, 4));
+  const y1 = Number(marks[marks.length - 1]!.debut.slice(0, 4));
+  const columns =
+    unit === 'quarter'
+      ? quarterSpan(`${y0}Q1`, `${y1}Q4`)
+      : Array.from({ length: y1 - y0 + 1 }, (_, i) => String(y0 + i));
+  const colOf = (m: LaneMark) => (unit === 'quarter' ? columns.indexOf(quarterOf(m.debut)) : Number(m.debut.slice(0, 4)) - y0);
+  const at: LaneLayout['at'] = {};
+  const lanes = TECHNIQUES.map((technique) => {
+    const cells: Record<number, LaneMark[]> = {};
+    for (const m of marks) {
+      if (!m.techniques.includes(technique)) continue;
+      const col = colOf(m);
+      const stack = (cells[col] ??= []);
+      at[`${m.code}|${technique}`] = { col, row: stack.length };
+      stack.push(m);
     }
-  }
-  return Object.fromEntries(TECHNIQUES.map((t) => [t, per[t].map((w, i) => (total[i]! > 0 ? Math.round((100 * w) / total[i]!) : null))])) as Record<Technique, (number | null)[]>;
-}
-
-/**
- * A technique's line as the artist drew it (2026-11-06): one piece across the timeline. Quarters without mints are
- * bridged straight between their neighbours; the line is born at 0 the quarter before the technique first appears and
- * ends at 0 the quarter after it was last used. Everything outside that is null (not drawn).
- */
-export function continuousLine(values: (number | null)[]): (number | null)[] {
-  const known = values.flatMap((v, i) => (v === null ? [] : [i]));
-  const filled = values.map((v, i) => {
-    if (v !== null) return v;
-    const a = known.filter((k) => k < i).at(-1);
-    const b = known.find((k) => k > i);
-    if (a === undefined || b === undefined) return null;
-    return Math.round(values[a]! + ((values[b]! - values[a]!) * (i - a)) / (b - a));
+    return { technique, rows: Math.max(0, ...Object.values(cells).map((s) => s.length)), cells };
   });
-  return filled.map((v, i) => (v !== null && (v > 0 || (filled[i - 1] ?? 0) > 0 || (filled[i + 1] ?? 0) > 0) ? v : null));
+  const links = marks.flatMap((m) => m.techniques.slice(1).map((to, i) => ({ code: m.code, from: m.techniques[i]!, to })));
+  return { columns, lanes, at, links };
 }
 
 export function summary(cols: CollectionOut[]) {

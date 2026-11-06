@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { collections } from '../../src/lib/data';
-import { LINE_DASH, techniqueNotes } from '../../src/lib/technique-notes';
+import { techniqueNotes } from '../../src/lib/technique-notes';
 
 const notes = () => techniqueNotes(collections());
 
@@ -39,8 +39,5 @@ describe('technique notes', () => {
     expect(y.pixel).toBe('2026');
     expect(y.three).toBe('2026');
     expect(y.ai).toBeUndefined();
-  });
-  it('gives the four techniques four different dash patterns', () => {
-    expect(new Set(Object.values(LINE_DASH)).size).toBe(4);
   });
 });

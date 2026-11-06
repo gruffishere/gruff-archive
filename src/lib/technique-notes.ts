@@ -1,18 +1,9 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
-import type { Technique } from '../../indexer/tags';
 import { collectionPath, workPath } from './links';
 import { ROOMS, roomPath } from './rooms';
 
 export interface NoteImage { src: string; alt: string; caption?: string }
 export interface Note { key: string; label: string; /** The years its works span, e.g. `2023–2026`; the ai note has none. */ years?: string; text: string; images: NoteImage[]; excerpt?: 'facets-onchain'; links: { label: string; href: string }[] }
-
-/** Four line styles that stay apart in ink alone: solid, dotted, dashed, dash-dot. */
-export const LINE_DASH: Record<Technique, string> = {
-  'vector illustration': '',
-  'glitch art': '2 4',
-  'generative art': '9 4',
-  'code art': '14 4 2 4',
-};
 
 export function techniqueNotes(cols: CollectionOut[]): Note[] {
   const by = (slug: string) => cols.find((c) => c.slug === slug);
