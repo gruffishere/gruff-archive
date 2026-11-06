@@ -15,6 +15,7 @@ export interface CollectionConfig {
   section: Section;
   tokenIds?: string[];
   techniques: string[];
+  tools?: string[];
   tokenTechniques?: Record<string, string[]>;
   wallText?: string;
   /** Token metadata source: Blockscout's cache (default) or the contract's own tokenURI. */

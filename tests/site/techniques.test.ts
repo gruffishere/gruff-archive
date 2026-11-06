@@ -1,39 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut, TokenOut } from '../../src/lib/data';
-import { balance, barPct, onChainShare, techniqueYears } from '../../src/lib/techniques';
+import { quarterOf, quarterSpan, summary, techniqueShares, timelineQuarters, toolCells } from '../../src/lib/techniques';
 
-const col = (p: Partial<CollectionOut>) => ({ slug: 's', section: 'index', standard: 'erc721', techniques: ['illustration'], works: 1, pieces: 1, ...p }) as CollectionOut;
+const col = (p: Partial<CollectionOut>) => ({ slug: 's', section: 'index', standard: 'erc721', techniques: ['vector illustration'], tools: [], works: 1, pieces: 1, ...p }) as CollectionOut;
 const tok = (at: string, supply = 1) => ({ supply, mint: { at } }) as TokenOut;
+const many = (n: number, at: string) => Array.from({ length: n }, () => tok(at));
 
-describe('techniques', () => {
-  const cols = [col({ slug: 'a', techniques: ['illustration'], works: 2, pieces: 2 }), col({ slug: 'b', techniques: ['generative', 'on-chain'], works: 6, pieces: 6 }), col({ slug: 'e', standard: 'erc1155', pieces: 40, works: 3 }), col({ slug: 'x', section: 'experiments', techniques: ['generative'] })];
-  const tokens = { a: [tok('2023-02-01T00:00:00.000Z'), tok('2023-03-01T00:00:00.000Z')], b: [tok('2026-09-01T00:00:00.000Z'), tok('2026-09-02T00:00:00.000Z', 0)], e: [tok('2023-01-01T00:00:00.000Z')], x: [tok('2026-09-01T00:00:00.000Z')] };
+describe('quarters', () => {
+  it('names a quarter and spans quarters inclusively', () => {
+    expect(quarterOf('2023-01-31T00:00:00.000Z')).toBe('2023Q1');
+    expect(quarterOf('2025-08-14T10:00:00.000Z')).toBe('2025Q3');
+    expect(quarterOf('2026-12-01')).toBe('2026Q4');
+    expect(quarterSpan('2024Q4', '2025Q2')).toEqual(['2024Q4', '2025Q1', '2025Q2']);
+    expect(quarterSpan('2025Q1', '2025Q1')).toEqual(['2025Q1']);
+  });
+  it('runs from the first dated work or room to the last', () => {
+    const cols = [col({ slug: 'a' })];
+    expect(timelineQuarters(cols, { a: [tok('2023-02-01T00:00:00.000Z')] }, [{ date: '2023-11-30', since: '2023-11' }])).toEqual(['2023Q1', '2023Q2', '2023Q3', '2023Q4']);
+    expect(timelineQuarters([], {}, [])).toEqual([]);
+  });
+});
 
-  it('counts works per technique and year', () => {
-    expect(techniqueYears(cols, tokens)).toEqual({
-      years: ['2023', '2026'],
-      rows: [
-        { technique: 'illustration', counts: [3, 0] },
-        { technique: 'generative', counts: [0, 2] },
-        { technique: 'on-chain', counts: [0, 1] },
-      ],
-    });
+describe('techniqueShares', () => {
+  const Q = ['2023Q1', '2023Q2', '2023Q3'];
+  it('gives every collection one vote, whatever its size', () => {
+    const cols = [col({ slug: 'big', techniques: ['generative art'] }), col({ slug: 'one', techniques: ['vector illustration'] })];
+    const s = techniqueShares(cols, { big: many(673, '2023-02-01T00:00:00.000Z'), one: [tok('2023-03-01T00:00:00.000Z')] }, Q);
+    expect(s['generative art'][0]).toBe(50);
+    expect(s['vector illustration'][0]).toBe(50);
   });
-  it('sizes meters as percentages', () => {
-    expect(barPct(3, 3)).toBe(100);
-    expect(barPct(1, 1000)).toBe(2);
-    expect(barPct(0, 5)).toBe(0);
-    expect(barPct(5, 0)).toBe(0);
-    expect(barPct(50, 200)).toBe(25);
+  it('counts a collection fully on each of its techniques', () => {
+    const s = techniqueShares([col({ slug: 'p', techniques: ['vector illustration', 'glitch art'] })], { p: [tok('2023-05-01T00:00:00.000Z')] }, Q);
+    expect(s['vector illustration'][1]).toBe(100);
+    expect(s['glitch art'][1]).toBe(100);
+    expect(s['code art'][1]).toBe(0);
   });
-  it('computes balance and on-chain share', () => {
-    expect(balance(cols)).toEqual({ oneOfOne: 2, editionPieces: 40 });
-    expect(onChainShare(cols)).toBeCloseTo(6 / 12);
+  it('leaves a quarter with no mints empty, not zero, and skips burned or undated tokens', () => {
+    const s = techniqueShares([col({ slug: 'a' })], { a: [tok('2023-01-10T00:00:00.000Z'), tok('2023-02-10T00:00:00.000Z', 0), { supply: 1, mint: null } as unknown as TokenOut] }, Q);
+    expect(s['vector illustration']).toEqual([100, null, null]);
   });
-  it('counts experiments too, so no work drops out of the page', () => {
-    const only = [col({ slug: 'x', section: 'experiments', techniques: ['generative'], works: 4 })];
-    expect(techniqueYears(only, { x: [tok('2026-09-01T00:00:00.000Z')] }).rows).toEqual([{ technique: 'generative', counts: [1] }]);
-    expect(onChainShare([col({ slug: 'o', section: 'experiments', techniques: ['on-chain'], works: 3 }), col({ slug: 'i', works: 1 })])).toBeCloseTo(3 / 4);
-    expect(balance([col({ slug: 'g', section: 'experiments', techniques: ['generative'], works: 5 })]).oneOfOne).toBe(0);
+  it('splits a collection across the quarters it minted in', () => {
+    const cols = [col({ slug: 'a', techniques: ['glitch art'] }), col({ slug: 'b', techniques: ['code art'] })];
+    const s = techniqueShares(cols, { a: [tok('2023-01-10T00:00:00.000Z'), tok('2023-04-10T00:00:00.000Z')], b: [tok('2023-04-11T00:00:00.000Z')] }, Q);
+    expect(s['glitch art']).toEqual([100, 33, null]);
+    expect(s['code art']).toEqual([0, 67, null]);
+  });
+});
+
+describe('toolCells', () => {
+  it('fills a quarter when a collection minted then or a room is dated then', () => {
+    const cols = [col({ slug: 'a', tools: ['photoshop'] })];
+    const t = toolCells(cols, { a: [tok('2023-01-10T00:00:00.000Z')] }, [{ date: '2023-08-01', since: '2023-08', tools: ['three.js'] }], ['2023Q1', '2023Q2', '2023Q3']);
+    expect(t.photoshop).toEqual([true, false, false]);
+    expect(t['three.js']).toEqual([false, false, true]);
+    expect(t['on-chain']).toEqual([false, false, false]);
+  });
+});
+
+describe('summary', () => {
+  it('counts on-chain share, 1/1 works and edition pieces', () => {
+    const cols = [col({ slug: 'a', works: 2 }), col({ slug: 'b', techniques: ['generative art', 'code art'], tools: ['on-chain'], works: 6 }), col({ slug: 'e', standard: 'erc1155', pieces: 40, works: 3 }), col({ slug: 'x', section: 'experiments', techniques: ['generative art'], works: 1 })];
+    expect(summary(cols)).toEqual({ onChainPct: 50, oneOfOne: 2, editionPieces: 40 });
   });
 });

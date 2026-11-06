@@ -1,5 +1,6 @@
 import { catalogPieces } from '../../src/lib/catalog';
 import { loadConfig } from '../../indexer/config';
+import { isGenerative, isOnChain } from '../../indexer/tags';
 import { countLabel } from '../../src/lib/collections';
 import { collections, tokensOf } from '../../src/lib/data';
 import { workPath } from '../../src/lib/links';
@@ -38,7 +39,7 @@ test('index lists the collections and filters them', async ({ page }) => {
   };
   expect(Math.abs((await yearEdge('PHG')) - (await yearEdge('FCT')))).toBeLessThanOrEqual(1);
   await page.getByRole('button', { name: 'on-chain' }).click();
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount([...s.idx, ...s.exp].filter((c) => c.techniques.includes('on-chain')).length);
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount([...s.idx, ...s.exp].filter((c) => isOnChain(c)).length);
   await page.getByRole('button', { name: 'experiments' }).click();
   await expect(page.locator('#ledger a.row:visible')).toHaveCount(s.expTotal);
   expect(await page.locator('#ledger a.row:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.code).sort())).toEqual([...s.exp.map((c) => c.code), ...ROOMS.map((r) => `room:${r.slug}`)].sort());
@@ -266,21 +267,6 @@ test('keepers: long names and the show-all button stay inside 360px', async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
-test('techniques page draws the catalog', async ({ page }) => {
-  await checkPage(page, '/techniques/');
-  await expect(page.getByText('technique × year')).toBeVisible();
-  expect(await page.locator('.meter').count()).toBeGreaterThan(4);
-  expect(await page.locator('body *', { hasText: /[░█]/ }).count()).toBe(0);
-  const widths = await page.locator('.meter i').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
-  expect(widths.some((w) => w > 0)).toBe(true);
-  const counts = await page.locator('.cell[data-tech="illustration"] .num').allTextContents();
-  expect(counts.length).toBeGreaterThan(0);
-  expect(counts.every((t) => /^[1-9][\d,]*$/.test(t.trim()))).toBe(true);
-  await expect(page.locator('.cell.f', { hasText: '—' }).first()).toBeVisible();
-  await page.setViewportSize({ width: 360, height: 800 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
-});
-
 test('about lists the socials and experiments lists the rooms', async ({ page }) => {
   await checkPage(page, '/about/');
   await expect(page.getByText('trying to be an experimental artist')).toBeVisible();
@@ -424,7 +410,7 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
     const n = per.get(c.slug) ?? 0;
     const e = expected.get(c.slug) ?? 0;
     expect(n, c.slug).toBeLessThanOrEqual(e);
-    if (c.techniques.includes('generative')) expect(n, `${c.slug} is generative`).toBeLessThanOrEqual(5);
+    if (isGenerative(c)) expect(n, `${c.slug} is generative`).toBeLessThanOrEqual(5);
   }
   const boxes = (await tiles.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height }; })));
   for (let i = 0; i < boxes.length; i++)

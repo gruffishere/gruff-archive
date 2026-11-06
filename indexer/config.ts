@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { z } from 'zod';
+import { TECHNIQUES, TOOLS } from './tags';
 import type { CollectionConfig } from './types';
 
 const address = z
@@ -18,7 +19,8 @@ const collectionSchema = z.object({
   platformUrl: z.string().url().optional(),
   section: z.enum(['index', 'experiments']),
   tokenIds: z.array(z.coerce.string()).optional(),
-  techniques: z.array(z.string()).min(1),
+  techniques: z.array(z.enum(TECHNIQUES)).min(1),
+  tools: z.array(z.enum(TOOLS)).default([]),
   tokenTechniques: z.record(z.string(), z.array(z.string())).optional(),
   wallText: z.string().optional(),
   metadata: z.enum(['blockscout', 'chain']).default('blockscout'),

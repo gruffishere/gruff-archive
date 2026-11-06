@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig, parseConfig } from '../../indexer/config';
+import { isGenerative, isOnChain } from '../../indexer/tags';
 
 const yaml = `
 artist: "0x4730497622bDFd6EAFe1F09Fa22B3A0ACA94a646"
@@ -11,7 +12,7 @@ collections:
     standard: erc721
     platform: manifold
     section: index
-    techniques: [illustration]
+    techniques: [vector illustration]
 `;
 
 describe('parseConfig', () => {
@@ -27,7 +28,7 @@ describe('parseConfig', () => {
   });
 
   it('coerces numeric token ids to strings', () => {
-    const c = parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    tokenIds: [366]'));
+    const c = parseConfig(yaml.replace('techniques: [vector illustration]', 'techniques: [vector illustration]\n    tokenIds: [366]'));
     expect(c.collections[0].tokenIds).toEqual(['366']);
   });
 
@@ -37,7 +38,7 @@ describe('parseConfig', () => {
 
   it('rejects unknown keys', () => {
     expect(() =>
-      parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    tokenId: [366]')),
+      parseConfig(yaml.replace('techniques: [vector illustration]', 'techniques: [vector illustration]\n    tokenId: [366]')),
     ).toThrow();
     expect(() => parseConfig(yaml + '\nowner: x\n')).toThrow();
   });
@@ -80,18 +81,18 @@ describe('parseConfig extras (M3, M7)', () => {
   });
 
   it('accepts a per-token collaborators override', () => {
-    const c = parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    collaborators: { "3": ["A", "B"] }'));
+    const c = parseConfig(yaml.replace('techniques: [vector illustration]', 'techniques: [vector illustration]\n    collaborators: { "3": ["A", "B"] }'));
     expect(c.collections[0].collaborators).toEqual({ '3': ['A', 'B'] });
   });
 
   it('accepts per-collection links and defaults to none', () => {
     expect(parseConfig(yaml).collections[0].links).toBeUndefined();
-    const c = parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    links: [{ label: site, url: "https://thefacets.art" }]'));
+    const c = parseConfig(yaml.replace('techniques: [vector illustration]', 'techniques: [vector illustration]\n    links: [{ label: site, url: "https://thefacets.art" }]'));
     expect(c.collections[0].links).toEqual([{ label: 'site', url: 'https://thefacets.art' }]);
   });
 
   it('rejects non-https links and unknown link fields', () => {
-    const w = (v: string) => yaml.replace('techniques: [illustration]', `techniques: [illustration]\n    links: [${v}]`);
+    const w = (v: string) => yaml.replace('techniques: [vector illustration]', `techniques: [vector illustration]\n    links: [${v}]`);
     expect(() => parseConfig(w('{ label: site, url: "http://x.art" }'))).toThrow();
     expect(() => parseConfig(w('{ label: site, url: "javascript:alert(1)" }'))).toThrow();
     expect(() => parseConfig(w('{ label: "", url: "https://x.art" }'))).toThrow();
@@ -113,6 +114,28 @@ describe('parseConfig extras (M3, M7)', () => {
   });
 
   it('rejects a malformed collaborators override', () => {
-    expect(() => parseConfig(yaml.replace('techniques: [illustration]', 'techniques: [illustration]\n    collaborators: { "3": "A" }'))).toThrow();
+    expect(() => parseConfig(yaml.replace('techniques: [vector illustration]', 'techniques: [vector illustration]\n    collaborators: { "3": "A" }'))).toThrow();
+  });
+  it('accepts only the four techniques and the six tools', () => {
+    const base = (t: string, tools = '') => `artist: "0x4730497622bdfd6eafe1f09fa22b3a0aca94a646"
+collections:
+  - { code: AAA, slug: a, title: "A", contract: "0x0000000000000000000000000000000000000001", standard: erc721, platform: custom, section: index, techniques: [${t}]${tools} }
+`;
+    expect(() => parseConfig(base('vector illustration'))).not.toThrow();
+    expect(parseConfig(base('glitch art')).collections[0].tools).toEqual([]);
+    expect(() => parseConfig(base('illustration'))).toThrow();
+    expect(() => parseConfig(base('code art', ', tools: [blender]'))).toThrow();
+    expect(parseConfig(base('code art', ', tools: [three.js, on-chain]')).collections[0].tools).toEqual(['three.js', 'on-chain']);
+  });
+  it('tags the real collections as the artist set them (2026-11-06)', () => {
+    const cols = loadConfig().collections;
+    const codes = (f: (c: (typeof cols)[number]) => boolean) => cols.filter(f).map((c) => c.code).sort();
+    expect(codes((c) => isGenerative(c))).toEqual(['FCT', 'GRT', 'OVN', 'PHG']);
+    expect(codes((c) => isOnChain(c))).toEqual(['FCT', 'OVN', 'PHG']);
+    expect(codes((c) => c.techniques.includes('glitch art'))).toEqual(['366', 'OVS', 'PUL', 'SUB']);
+    expect(codes((c) => c.techniques.includes('code art'))).toEqual(['FCT', 'OVN', 'PHG']);
+    expect(codes((c) => !!c.tools?.includes('touchdesigner'))).toEqual(['PUL']);
+    expect(codes((c) => !!c.tools?.includes('pixel grid'))).toEqual(['FCT']);
+    expect(codes((c) => !!c.tools?.includes('photoshop'))).toEqual(['ANT', 'BLS', 'CLB', 'ESS', 'GFT', 'ICN', 'LSO', 'ONE', 'PPC', 'PUL', 'RES', 'SLV', 'SOA', 'VBS']);
   });
 });

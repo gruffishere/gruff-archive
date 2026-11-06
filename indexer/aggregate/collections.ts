@@ -15,6 +15,7 @@ export interface CollectionOut {
   links: { label: string; url: string }[];
   section: CollectionConfig['section'];
   techniques: string[];
+  tools: string[];
   wallText: string | null;
   accession: string;
   firstMint: string | null;
@@ -62,6 +63,7 @@ export function buildCollection(i: {
     links: i.cfg.links ?? [],
     section: i.cfg.section,
     techniques: i.cfg.techniques,
+    tools: i.cfg.tools ?? [],
     wallText: i.cfg.wallText ?? i.osDescription ?? null,
     accession: accession(i.cfg.code, i.year),
     firstMint: mintDates[0] ?? null,

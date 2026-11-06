@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
+import { isGenerative } from '../../indexer/tags';
 import { inCirculation } from './collections';
 import { chooseMedia } from './media';
 import { workPath } from './links';
@@ -110,7 +111,7 @@ export function catalogPieces(collections: CollectionOut[], tokensBySlug: Record
         return true;
       });
     let chosen = ps;
-    if (c.techniques.includes('generative') && ps.length > PER_GENERATIVE) {
+    if (isGenerative(c) && ps.length > PER_GENERATIVE) {
       // evenly spread picks over the distinct pieces, so duplicates never leave a gap in the five
       const n = ps.length;
       chosen = Array.from({ length: PER_GENERATIVE }, (_, i) => ps[Math.floor(((i + 0.5) * n) / PER_GENERATIVE)]!);
@@ -149,7 +150,7 @@ export function catalogPool(collections: CollectionOut[], tokensBySlug: Record<s
         local.add(key);
         return true;
       });
-    const generative = c.techniques.includes('generative');
+    const generative = isGenerative(c);
     let chosen = ps;
     if (generative && ps.length > POOL_PER_GENERATIVE) {
       const n = ps.length;

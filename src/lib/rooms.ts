@@ -1,3 +1,4 @@
+import type { Tool } from '../../indexer/tags';
 import type { IndexFilter } from './collections';
 
 export const ROOM_STATUSES = ['in voting', 'work in progress', 'live'] as const;
@@ -27,6 +28,8 @@ export interface Room {
   stills?: { src: string; caption: string }[];
   /** A file in src/content/ shown under the live piece as the artist's own text. */
   commentary?: string;
+  /** Tools for the techniques page strip (rooms never count toward the technique lines). */
+  tools?: Tool[];
   /** deal rooms: a gallery of sample cards (src/lib/sample-cards.json) under the table. */
   gallery?: boolean;
 }
@@ -74,6 +77,7 @@ export const ROOMS: Room[] = [
       { src: '/exp/dive-bar/stills/art-hour.webp', caption: 'the art hour' },
     ],
     commentary: 'dive-bar-commentary.md',
+    tools: ['three.js'],
   }),
   defineRoom({
     slug: 'playing-cards',
