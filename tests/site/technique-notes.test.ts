@@ -31,6 +31,15 @@ describe('technique notes', () => {
       expect(existsSync(`public${i.src}`), i.src).toBe(true);
     }
   });
+  it('dates each method by the years its works span, so the tools are told under the chart, not in it', () => {
+    const y = Object.fromEntries(notes().map((n) => [n.key, n.years]));
+    expect(y.vector).toBe('2023–2026');
+    expect(y.photoshop).toBe('2023–2026');
+    expect(y.touchdesigner).toBe('2025–2026');
+    expect(y.pixel).toBe('2026');
+    expect(y.three).toBe('2026');
+    expect(y.ai).toBeUndefined();
+  });
   it('gives the four techniques four different dash patterns', () => {
     expect(new Set(Object.values(LINE_DASH)).size).toBe(4);
   });

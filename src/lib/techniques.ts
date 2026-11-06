@@ -1,6 +1,6 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
-import { TECHNIQUES, TOOLS, isGenerative, isOnChain, type Technique, type Tool } from '../../indexer/tags';
+import { TECHNIQUES, isGenerative, isOnChain, type Technique } from '../../indexer/tags';
 import type { Room } from './rooms';
 
 /** Every collection, the experiments included: no work silently drops out of the page. */
@@ -39,16 +39,21 @@ export function techniqueShares(cols: CollectionOut[], tokensBySlug: Record<stri
   return Object.fromEntries(TECHNIQUES.map((t) => [t, per[t].map((w, i) => (total[i]! > 0 ? Math.round((100 * w) / total[i]!) : null))])) as Record<Technique, (number | null)[]>;
 }
 
-export function toolCells(cols: CollectionOut[], tokensBySlug: Record<string, TokenOut[]>, rooms: Pick<Room, 'date' | 'since' | 'tools'>[], quarters: string[]): Record<Tool, boolean[]> {
-  const at = new Map(quarters.map((q, i) => [q, i]));
-  const cells = Object.fromEntries(TOOLS.map((t) => [t, quarters.map(() => false)])) as Record<Tool, boolean[]>;
-  const mark = (tools: readonly string[] | undefined, q: string) => {
-    const i = at.get(q);
-    if (i !== undefined) for (const tool of tools ?? []) if (tool in cells) cells[tool as Tool][i] = true;
-  };
-  for (const c of shown(cols)) for (const t of dated(tokensBySlug[c.slug])) mark(c.tools, quarterOf(t.mint!.at));
-  for (const r of rooms) mark(r.tools, quarterOf(roomDay(r)));
-  return cells;
+/**
+ * A technique's line as the artist drew it (2026-11-06): one piece across the timeline. Quarters without mints are
+ * bridged straight between their neighbours; the line is born at 0 the quarter before the technique first appears and
+ * ends at 0 the quarter after it was last used. Everything outside that is null (not drawn).
+ */
+export function continuousLine(values: (number | null)[]): (number | null)[] {
+  const known = values.flatMap((v, i) => (v === null ? [] : [i]));
+  const filled = values.map((v, i) => {
+    if (v !== null) return v;
+    const a = known.filter((k) => k < i).at(-1);
+    const b = known.find((k) => k > i);
+    if (a === undefined || b === undefined) return null;
+    return Math.round(values[a]! + ((values[b]! - values[a]!) * (i - a)) / (b - a));
+  });
+  return filled.map((v, i) => (v !== null && (v > 0 || (filled[i - 1] ?? 0) > 0 || (filled[i + 1] ?? 0) > 0) ? v : null));
 }
 
 export function summary(cols: CollectionOut[]) {
