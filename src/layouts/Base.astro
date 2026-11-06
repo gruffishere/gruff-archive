@@ -19,6 +19,11 @@ const { title, description = 'gruff — archive emotions before they fade.', cur
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta name="theme-color" content="#000000" />
+    <!-- the wordmark's own Castoro "g", centred on black (drawn once from the font into public/) -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <slot name="head" />
   </head>
   <body>
