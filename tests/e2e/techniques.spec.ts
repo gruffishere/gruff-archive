@@ -42,7 +42,15 @@ test('techniques page hangs every collection in its technique lanes, and tells t
   await expect(page.locator('section.behind')).toHaveCount(4);
   await expect(page.locator('section.behind .bh .ln')).toHaveText(['vector illustration', 'glitch art', 'generative art', 'code art']);
   await expect(page.locator('section.behind .method')).toHaveCount(7);
-  await expect(page.locator('.method[data-key="photoshop"] .ml')).toContainText(/photoshop · 20\d\d–20\d\d/);
+  // no word said twice and no years (the artist, 2026-11-06): the heading names the lane once, a method named like
+  // its lane carries no label, and a tool's label is its name alone
+  await expect(page.locator('section.behind .bh')).toHaveText(['vector illustration', 'glitch art', 'generative art', 'code art']);
+  await expect(page.locator('.method[data-key="vector"] .ml')).toHaveCount(0);
+  await expect(page.locator('.method[data-key="photoshop"] .ml')).toHaveText('photoshop');
+  // the svg excerpt keeps its own namespace url (w3.org/2000/svg), so only the words are checked for years
+  for (const t of await page.locator('.behind-all .bh, .behind-all .method, .behind-all figcaption, .behind-all .ai').allInnerTexts()) expect(t).not.toMatch(/20\d\d/);
+  // no "→ collection" lists under the notes: the only links in the methods are the pictures opening full size
+  await expect(page.locator('.behind-all a:not(.sq)')).toHaveCount(0);
   await expect(page.locator('.ai[data-key="ai"]')).toHaveCount(1);
   await expect(page.locator('.ai img, .ai a')).toHaveCount(0);
   // every picture opens full size in a new tab

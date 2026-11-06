@@ -7,21 +7,21 @@ const { notes, excerpt } = Astro.props;
 // The artist's pick (2026-11-06): the methods sit behind the lane they fed, one section per lane, in lane order.
 const sections = TECHNIQUES.map((lane) => {
   const methods = notes.filter((n) => n.lane === lane);
-  return { lane, methods, tools: methods.map((m) => m.label).filter((l) => l !== lane), images: methods.flatMap((m) => m.images), code: methods.some((m) => m.excerpt) };
+  return { lane, methods, images: methods.flatMap((m) => m.images), code: methods.some((m) => m.excerpt) };
 }).filter((s) => s.methods.length > 0);
 const apart = notes.filter((n) => n.lane === null);
 ---
 <div class="behind-all">
   {sections.map((s) => (
     <section class="behind" data-lane={s.lane}>
-      <p class="k bh"><span class="ln">{s.lane}</span>{s.tools.length > 0 && <span class="tools">{s.tools.join(' · ')}</span>}</p>
+      <p class="k bh"><span class="ln">{s.lane}</span></p>
       <div class="cols">
         <div class="methods">
           {s.methods.map((m) => (
             <div class="method" data-key={m.key}>
-              <p class="k ml">{m.label}{m.years && <span class="f"> · {m.years}</span>}</p>
+              {/* a method named like its lane would only repeat the heading above it (the artist, 2026-11-06) */}
+              {m.label !== s.lane && <p class="k ml">{m.label}</p>}
               <p class="tx lower">{m.text}</p>
-              {m.links.length > 0 && <p class="links">{m.links.map((l) => <a class="hit" href={l.href}>→ {l.label}</a>)}</p>}
             </div>
           ))}
         </div>
@@ -50,13 +50,10 @@ const apart = notes.filter((n) => n.lane === null);
   .behind { padding: 24px 0 34px; border-top: 1px solid var(--line); }
   .bh { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; margin: 0 0 20px; }
   .ln { color: var(--fg); }
-  .tools { color: var(--muted); }
   .cols { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 0 48px; align-items: start; }
   .methods { display: grid; gap: 22px; }
   .ml { margin: 0 0 8px; }
   .tx { margin: 0; line-height: 1.65; max-width: 62ch; }
-  .links { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 0 22px; }
-  .links a { color: var(--muted); }
   .strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 200px)); gap: 16px 14px; }
   .strip figure { margin: 0; min-width: 0; }
   .sq { display: block; aspect-ratio: 1; overflow: hidden; background: #0a0a0a; border: 1px solid var(--line); }
