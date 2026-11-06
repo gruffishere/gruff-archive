@@ -3,7 +3,7 @@ import type { CollectionOut, TokenOut } from '../../src/lib/data';
 import { catalogPieces, pieceWeight } from '../../src/lib/catalog';
 
 const col = (slug: string, p: Partial<CollectionOut> = {}) =>
-  ({ slug, title: slug.toUpperCase(), code: slug.slice(0, 3).toUpperCase(), standard: 'erc721', section: 'index', techniques: ['illustration'], ...p }) as CollectionOut;
+  ({ slug, title: slug.toUpperCase(), code: slug.slice(0, 3).toUpperCase(), standard: 'erc721', section: 'index', techniques: ['vector illustration'], ...p }) as CollectionOut;
 const img = (id: string, extra: Partial<TokenOut> = {}, tag = '') =>
   ({ id, name: `n${id}`, supply: 1, image: { kind: 'image', thumb: `/media/${tag}${id}-t.webp`, large: `/media/${tag}${id}-l.webp`, file: null }, animation: null, ...extra }) as TokenOut;
 const many = (n: number, tag = '') => Array.from({ length: n }, (_, i) => img(String(i + 1), {}, tag));
@@ -12,8 +12,8 @@ const cols = [
   col('plain'),
   col('editions', { standard: 'erc1155' }),
   col('lab', { section: 'experiments' }),
-  col('gen', { techniques: ['generative', 'on-chain'] }),
-  col('empty-gen', { techniques: ['generative'] }),
+  col('gen', { techniques: ['generative art'], tools: ['on-chain'] }),
+  col('empty-gen', { techniques: ['generative art'] }),
 ];
 const tokens: Record<string, TokenOut[]> = {
   plain: [...many(4, 'p'), img('9', { supply: 0 }), img('10', { image: null })],
@@ -77,7 +77,7 @@ describe('catalogPieces', () => {
     const dup = (id: string) => img(id, { image: { kind: 'image', thumb: '/media/ph-t.webp', large: '/media/ph-l.webp', file: null } as TokenOut['image'] });
     const live = (id: string) => img(id, { image: null, animation: { kind: 'html', thumb: null, large: null, file: `/media/${id}.html` } as TokenOut['animation'] });
     const toks = [...Array.from({ length: 10 }, (_, i) => dup(String(i + 1))), ...Array.from({ length: 4 }, (_, i) => live(String(i + 11))), ...many(3, 'u').map((t) => ({ ...t, id: String(Number(t.id) + 20) }))];
-    const out = catalogPieces([col('g2', { techniques: ['generative'] })], { g2: toks });
+    const out = catalogPieces([col('g2', { techniques: ['generative art'] })], { g2: toks });
     expect(out).toHaveLength(5);
     expect(new Set(out.map((p) => p.src)).size).toBe(5);
     expect(out.filter((p) => p.src === '/media/ph-t.webp')).toHaveLength(1);
@@ -87,7 +87,7 @@ describe('catalogPieces', () => {
   it('only counts pieces actually hung against later collections', () => {
     const shared = img('1', { image: { kind: 'image', thumb: '/media/shared-t.webp', large: '/media/shared-l.webp', file: null } as TokenOut['image'] });
     const gen = [shared, ...many(9, 'q').map((t) => ({ ...t, id: String(Number(t.id) + 1) }))];
-    const out = catalogPieces([col('ga', { techniques: ['generative'] }), col('zb')], { ga: gen, zb: [{ ...shared, id: '7' }] });
+    const out = catalogPieces([col('ga', { techniques: ['generative art'] }), col('zb')], { ga: gen, zb: [{ ...shared, id: '7' }] });
     expect(out.filter((p) => p.slug === 'ga')).toHaveLength(5);
     expect(out.find((p) => p.slug === 'zb')).toBeTruthy();
   });
@@ -142,7 +142,7 @@ describe('measurePieces', () => {
 describe('catalogPool', () => {
   it('holds every non-generative work and at most 60 spread works per generative collection', async () => {
     const { catalogPool } = await import('../../src/lib/catalog');
-    const big = [col('plain'), col('gen', { techniques: ['generative'] }), col('gen2', { techniques: ['generative'] })];
+    const big = [col('plain'), col('gen', { techniques: ['generative art'] }), col('gen2', { techniques: ['generative art'] })];
     const pool = catalogPool(big, { plain: many(7, 'p'), gen: many(200, 'g'), gen2: many(12, 'h') });
     expect(pool.filter((p) => p.slug === 'plain')).toHaveLength(7);
     expect(pool.filter((p) => p.slug === 'gen')).toHaveLength(60);

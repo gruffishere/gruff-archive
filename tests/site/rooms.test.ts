@@ -205,3 +205,10 @@ describe('the scrubber and rooms', () => {
     expect(roomVisibleAt('2026-04', '2026-11')).toBe(true);
   });
 });
+
+describe('room tools', () => {
+  it('gives the dive bar its three.js tool and no other room a tool yet', () => {
+    expect(ROOMS.find((r) => r.slug === 'dive-bar')!.tools).toEqual(['three.js']);
+    expect(ROOMS.filter((r) => r.slug !== 'dive-bar').every((r) => !r.tools?.length)).toBe(true);
+  });
+});

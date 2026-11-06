@@ -1,5 +1,6 @@
 import { catalogPieces } from '../../src/lib/catalog';
 import { loadConfig } from '../../indexer/config';
+import { isGenerative, isOnChain } from '../../indexer/tags';
 import { countLabel } from '../../src/lib/collections';
 import { collections, tokensOf } from '../../src/lib/data';
 import { workPath } from '../../src/lib/links';
@@ -38,7 +39,7 @@ test('index lists the collections and filters them', async ({ page }) => {
   };
   expect(Math.abs((await yearEdge('PHG')) - (await yearEdge('FCT')))).toBeLessThanOrEqual(1);
   await page.getByRole('button', { name: 'on-chain' }).click();
-  await expect(page.locator('#ledger a.row:visible')).toHaveCount([...s.idx, ...s.exp].filter((c) => c.techniques.includes('on-chain')).length);
+  await expect(page.locator('#ledger a.row:visible')).toHaveCount([...s.idx, ...s.exp].filter((c) => isOnChain(c)).length);
   await page.getByRole('button', { name: 'experiments' }).click();
   await expect(page.locator('#ledger a.row:visible')).toHaveCount(s.expTotal);
   expect(await page.locator('#ledger a.row:visible').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.code).sort())).toEqual([...s.exp.map((c) => c.code), ...ROOMS.map((r) => `room:${r.slug}`)].sort());
@@ -424,7 +425,7 @@ test('catalog hangs the works on one wall', async ({ page }, info) => {
     const n = per.get(c.slug) ?? 0;
     const e = expected.get(c.slug) ?? 0;
     expect(n, c.slug).toBeLessThanOrEqual(e);
-    if (c.techniques.includes('generative')) expect(n, `${c.slug} is generative`).toBeLessThanOrEqual(5);
+    if (isGenerative(c)) expect(n, `${c.slug} is generative`).toBeLessThanOrEqual(5);
   }
   const boxes = (await tiles.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height }; })));
   for (let i = 0; i < boxes.length; i++)
