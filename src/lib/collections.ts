@@ -2,6 +2,7 @@ import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
 import { isEditions, isGenerative, isOnChain } from '../../indexer/tags';
 import type { Room } from './rooms';
+import { formatDate } from './format';
 
 export type IndexFilter = 'all' | 'one-of-one' | 'editions' | 'generative' | 'on-chain' | 'experiments';
 export const INDEX_FILTERS: { key: IndexFilter; label: string }[] = [
@@ -64,4 +65,17 @@ export function workNav(tokens: Pick<TokenOut, 'id' | 'supply'>[]): WorkNav[] {
     const after = live.find((j) => j > i);
     return { prev: before === undefined ? null : tokens[before].id, next: after === undefined ? null : tokens[after].id, n: inCirculation(t) ? live.indexOf(i) + 1 : null, total };
   });
+}
+
+/**
+ * The price line of a collection's preview on the index (the artist, 2026-11-07): the lowest live listing among its
+ * works ("listed from" when it holds several), else its latest sale labelled with the date, else nothing.
+ */
+export function previewPrice(c: Pick<CollectionOut, 'works'>, tokens: Pick<TokenOut, 'supply' | 'listing' | 'lastSale'>[]): { kind: 'listed' | 'sold'; priceWei: string; label: string } | null {
+  const live = tokens.filter(inCirculation);
+  const listed = live.filter((t) => t.listing).sort((a, b) => (BigInt(a.listing!.priceWei) < BigInt(b.listing!.priceWei) ? -1 : 1))[0];
+  if (listed) return { kind: 'listed', priceWei: listed.listing!.priceWei, label: c.works > 1 ? 'listed from' : 'listed' };
+  const sold = live.filter((t) => t.lastSale).sort((a, b) => b.lastSale!.at.localeCompare(a.lastSale!.at))[0];
+  if (sold) return { kind: 'sold', priceWei: sold.lastSale!.priceWei, label: `last sale · ${formatDate(sold.lastSale!.at)}` };
+  return null;
 }

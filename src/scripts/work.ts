@@ -2,6 +2,7 @@ import './print-label';
 import { livePrice } from '../lib/live-price';
 import { openseaItem } from '../lib/links';
 import { formatUsd } from '../lib/format';
+import { writePrice } from '../lib/price-parts';
 
 const usdOf = (wei: string, rate: number) => formatUsd(wei, rate) ?? '';
 
@@ -33,12 +34,13 @@ if (priceEl?.dataset.contract) {
     .then(({ listing }) => {
       const view = livePrice({ snapshot, listing, lastSale: sold ? { priceWei: sold, date: soldAt } : null });
       if (!view) return;
-      priceEl.textContent = view.text;
+      writePrice(priceEl, view.text);
       priceEl.classList.toggle('none', view.none);
       priceEl.classList.toggle('sold', view.sold);
       const usd = document.getElementById('live-usd');
       const rate = Number(usd?.dataset.rate);
-      if (usd) usd.textContent = !view.none && !view.sold && listing && rate > 0 ? usdOf(listing.priceWei, rate) : '';
+      const shownWei = listing?.priceWei ?? (view.sold ? sold : '');
+      if (usd) usd.textContent = !view.none && shownWei && rate > 0 ? usdOf(shownWei, rate) : '';
       const label = document.getElementById('price-label');
       if (label) label.textContent = view.label;
       const note = document.getElementById('price-note');

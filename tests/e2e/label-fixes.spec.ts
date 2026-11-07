@@ -46,7 +46,7 @@ test('a listed work shows its dollar value, quiet beside the eth', async ({ page
   await page.route('**/api/listing**', (r) => r.fulfill({ status: 404, body: '' }));
   await checkPage(page, workPath(found!.slug, found!.id));
   const usd = page.locator('#live-usd');
-  await expect(usd).toHaveText(/^\$[\d,]+$/);
+  await expect(usd).toHaveText(/^(\$[\d,.]+|<\$0\.01)$/);
   const [u, e] = await Promise.all([usd.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)), page.locator('#live-price').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))]);
   expect(u).toBeLessThan(e);
 });
@@ -79,7 +79,32 @@ test('an unlisted work that sold shows its last sale in the price spot, labelled
   await expect(page.locator('#price-label')).toHaveText(/^last sale · \d{2}\.\d{2}\.\d{4}$/);
   await expect(page.locator('#live-price')).toHaveClass(/sold/);
   await expect(page.locator('#live-price')).toHaveText(/Ξ$/);
-  await expect(page.locator('#live-usd')).toBeEmpty();
+  // the dollar value sits beside a last sale too, at today's rate (the artist, 2026-11-07)
+  await expect(page.locator('#live-usd')).toHaveText(/^(\$[\d,.]+|<\$0\.01)$/);
+  // the Ξ is small and close: the number and the symbol are separate spans, the text still reads "<n> Ξ"
+  await expect(page.locator('#live-price .cur')).toHaveText(' Ξ');
+  const [numSize, curSize] = await Promise.all([page.locator('#live-price .num').evaluate((e) => parseFloat(getComputedStyle(e).fontSize)), page.locator('#live-price .cur').evaluate((e) => parseFloat(getComputedStyle(e).fontSize))]);
+  expect(curSize).toBeLessThan(numSize);
   // the row below would only repeat it
   await expect(page.locator('.label .lr.ls')).toBeHidden();
+});
+
+test('the index preview shows the lowest listing, or the latest sale labelled with its date', async ({ page }, info) => {
+  test.skip(info.project.name === 'phone', 'the preview panel is a desktop hover');
+  const { previewPrice } = await import('../../src/lib/collections');
+  const cols = collections().filter((c) => c.section === 'index');
+  const sold = cols.find((c) => previewPrice(c, tokensOf(c.slug))?.kind === 'sold');
+  const listed = cols.find((c) => previewPrice(c, tokensOf(c.slug))?.kind === 'listed');
+  await checkPage(page, '/');
+  if (sold) {
+    await page.locator(`#ledger a.row[data-code="${sold.code}"]`).hover();
+    await expect(page.locator('#pv-listed-label')).toHaveText(/^last sale · \d{2}\.\d{2}\.\d{4}$/);
+    await expect(page.locator('#pv-price')).toHaveClass(/sold/);
+    await expect(page.locator('#pv-unlisted')).toBeHidden();
+  }
+  if (listed) {
+    await page.locator(`#ledger a.row[data-code="${listed.code}"]`).hover();
+    await expect(page.locator('#pv-listed-label')).toHaveText(/^listed( from)?$/);
+    await expect(page.locator('#pv-price')).not.toHaveClass(/sold/);
+  }
 });

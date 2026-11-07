@@ -17,7 +17,10 @@ export function formatEth(wei: string | null | undefined): string | null {
 export function formatUsd(wei: string | null | undefined, ethUsd: number | null | undefined): string | null {
   if (wei == null || ethUsd == null) return null;
   const eth = Number((BigInt(wei) * 1_000_000n) / WEI) / 1_000_000;
-  return `$${Math.round(eth * ethUsd).toLocaleString('en-US')}`;
+  const usd = eth * ethUsd;
+  if (usd < 0.01) return '<$0.01';
+  if (usd < 1) return `$${usd.toFixed(2)}`;
+  return `$${Math.round(usd).toLocaleString('en-US')}`;
 }
 
 export const shortAddress = (a: string) => `${a.slice(0, 5)}…${a.slice(-3)}`;

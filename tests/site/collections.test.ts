@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionOut } from '../../src/lib/data';
-import { archiveSpan, countLabel, experimentCollections, filterTags, firstYear, indexLedger, indexCollections, inCirculation, layoutOf, workNav } from '../../src/lib/collections';
+import { archiveSpan, countLabel, experimentCollections, filterTags, firstYear, indexLedger, indexCollections, inCirculation, layoutOf, previewPrice, workNav } from '../../src/lib/collections';
 
 const c = (p: Partial<CollectionOut>) => ({ code: 'X', slug: 'x', title: 'X', contract: '0x', standard: 'erc721', platform: 'manifold', platformUrl: null, section: 'index', techniques: ['vector illustration'], wallText: null, accession: 'GRF.23.X', firstMint: '2023-01-01T00:00:00.000Z', lastMint: null, works: 3, pieces: 3, holders: 1, floorWei: null, coverTokenId: '1', staleSince: null, ...p }) as CollectionOut;
 
@@ -53,5 +53,22 @@ describe('tokens with no copies in circulation', () => {
     expect(nav[2]).toMatchObject({ prev: '1', next: null });
     expect(nav[1]).toMatchObject({ prev: '1', next: '3' });
     expect(nav[3]).toMatchObject({ prev: '3', next: null });
+  });
+});
+
+describe('previewPrice (the index preview, the artist 2026-11-07)', () => {
+  const tok = (p: { id: string; listing?: string; sale?: [string, string]; supply?: number }) => ({ id: p.id, supply: p.supply ?? 1, listing: p.listing ? { priceWei: p.listing } : null, lastSale: p.sale ? { priceWei: p.sale[0], at: p.sale[1] } : null }) as never;
+  it('shows the lowest listing in the collection, "listed from" when it holds several works', () => {
+    const r = previewPrice(c({ works: 7 }), [tok({ id: '1', listing: '90000000000000000' }), tok({ id: '2', listing: '50000000000000000' }), tok({ id: '3', sale: ['1', '2023-01-01'] })]);
+    expect(r).toEqual({ kind: 'listed', priceWei: '50000000000000000', label: 'listed from' });
+    expect(previewPrice(c({ works: 1 }), [tok({ id: '1', listing: '5' })])?.label).toBe('listed');
+  });
+  it('falls back to the latest sale in the collection, labelled with its date', () => {
+    const r = previewPrice(c({ works: 7 }), [tok({ id: '1', sale: ['300000000000000000', '2023-02-01T00:00:00.000Z'] }), tok({ id: '2', sale: ['836000000000000000', '2023-02-18T21:47:23.000Z'] })]);
+    expect(r).toEqual({ kind: 'sold', priceWei: '836000000000000000', label: 'last sale · 18.02.2023' });
+  });
+  it('says nothing when nothing is listed or sold, and ignores burned works', () => {
+    expect(previewPrice(c({}), [tok({ id: '1' })])).toBeNull();
+    expect(previewPrice(c({}), [tok({ id: '1', listing: '5', supply: 0 })])).toBeNull();
   });
 });
