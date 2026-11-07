@@ -1,6 +1,6 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
-import { TECHNIQUES, isGenerative, isOnChain, type Technique } from '../../indexer/tags';
+import { TECHNIQUES, isEditions, isGenerative, isOnChain, type Technique } from '../../indexer/tags';
 
 /** Every collection, the experiments included: no work silently drops out of the page. */
 const shown = (cols: CollectionOut[]) => cols.filter((c) => c.section === 'index' || c.section === 'experiments');
@@ -81,7 +81,7 @@ export function summary(cols: CollectionOut[]) {
   const works = idx.reduce((s, c) => s + c.works, 0);
   return {
     onChainPct: works ? Math.round((100 * idx.filter(isOnChain).reduce((s, c) => s + c.works, 0)) / works) : 0,
-    oneOfOne: idx.filter((c) => c.standard === 'erc721' && !isGenerative(c)).reduce((s, c) => s + c.works, 0),
-    editionPieces: idx.filter((c) => c.standard === 'erc1155').reduce((s, c) => s + c.pieces, 0),
+    oneOfOne: idx.filter((c) => !isEditions(c) && !isGenerative(c)).reduce((s, c) => s + c.works, 0),
+    editionPieces: idx.filter(isEditions).reduce((s, c) => s + c.pieces, 0),
   };
 }

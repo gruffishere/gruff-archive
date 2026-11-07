@@ -1,14 +1,20 @@
 import type { CollectionOut, TokenOut } from './data';
 import { displayName, formatDate, formatEth, mintValue } from './format';
+import { isEditions, isGenerative } from '../../indexer/tags';
 
 /** JSON for an inline `<script type="application/json">`: `<` is escaped so no string can close the tag. */
 export const safeJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
 
 /** The edition line shared by the wall label and the print label. */
-export function editionText(t: Pick<TokenOut, 'supply'>, c: Pick<CollectionOut, 'standard'> & { works: number; supplyCap?: number | null }): string {
+/** 1/1/<n> only for a series: a generative set (1/1/673) or a capped mint (1/1/69). Separate 1/1s read 1/1; an erc721
+ *  edition reads `edition of <works>`; an erc1155 token `edition of <its supply>` (the artist, 2026-11-07). */
+export function editionText(t: Pick<TokenOut, 'supply'>, c: Pick<CollectionOut, 'standard'> & { works: number; supplyCap?: number | null; techniques?: readonly string[]; format?: string | null }): string {
   const std = c.standard === 'erc1155' ? 'erc-1155' : 'erc-721';
   if (t.supply <= 0) return `none in circulation · ${std}`;
-  return c.standard === 'erc1155' ? `edition of ${t.supply} · ${std}` : `1/1${(c.supplyCap ?? c.works) > 1 ? `/${c.supplyCap ?? c.works}` : ''} · ${std}`;
+  if (c.standard === 'erc1155') return `edition of ${t.supply} · ${std}`;
+  if (isEditions(c)) return `edition of ${c.works} · ${std}`;
+  const series = c.supplyCap ?? (isGenerative({ techniques: c.techniques ?? [] }) ? c.works : 0);
+  return `1/1${series > 1 ? `/${series}` : ''} · ${std}`;
 }
 
 /** Owners for the keepers list: most copies first, then by the name shown (ens or short address), lowercase. */

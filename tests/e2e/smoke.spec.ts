@@ -93,11 +93,13 @@ test('work page shows the wall label and navigates with arrows', async ({ page }
   await expect(page).toHaveURL(/\/w\/silver-surfer\/2\/$/);
 });
 
-test('an erc-721 collection of several works numbers its editions 1/1/<works>', async ({ page }) => {
-  const c = collections().find((x) => x.slug === 'silver-surfer')!;
-  expect(c.works).toBeGreaterThan(1);
+// The artist (2026-11-07): 1/1/<n> only for a series (generative, or a capped mint); separate 1/1s read plain 1/1.
+test('a generative series numbers 1/1/<works>, separate one-of-ones read 1/1', async ({ page }) => {
+  const g = collections().find((x) => x.slug === 'gruffters')!;
+  await checkPage(page, workPath('gruffters', tokensOf('gruffters').find((t) => t.supply > 0)!.id));
+  await expect(page.locator('.label')).toContainText(`1/1/${g.works} · erc-721`);
   await checkPage(page, '/w/silver-surfer/1/');
-  await expect(page.locator('.label')).toContainText(`1/1/${c.works} · erc-721`);
+  await expect(page.locator('.label .lr', { hasText: 'edition' }).locator('.v')).toHaveText(/^1\/1 · erc-721/);
   const single = collections().find((x) => x.standard === 'erc721' && x.works === 1);
   if (single) {
     await checkPage(page, workPath(single.slug, tokensOf(single.slug).find((t) => t.supply > 0)!.id));

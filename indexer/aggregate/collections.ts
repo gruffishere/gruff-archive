@@ -2,6 +2,7 @@ import { accession } from '../accession';
 import type { Balances } from '../ledger';
 import type { CollectionConfig, MintInfo } from '../types';
 import { isKeeperAddress } from './exclusions';
+import { formatOf, type Format } from '../tags';
 import type { TokenOut } from './tokens';
 
 export interface CollectionOut {
@@ -16,6 +17,8 @@ export interface CollectionOut {
   section: CollectionConfig['section'];
   techniques: string[];
   tools: string[];
+  /** one-of-one or editions, from the config or the standard's default. */
+  format: Format;
   wallText: string | null;
   accession: string;
   firstMint: string | null;
@@ -64,6 +67,7 @@ export function buildCollection(i: {
     section: i.cfg.section,
     techniques: i.cfg.techniques,
     tools: i.cfg.tools ?? [],
+    format: formatOf(i.cfg),
     wallText: i.cfg.wallText ?? i.osDescription ?? null,
     accession: accession(i.cfg.code, i.year),
     firstMint: mintDates[0] ?? null,

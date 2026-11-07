@@ -8,6 +8,8 @@ describe('collections', () => {
   it('tags collections for the index filters', () => {
     expect(filterTags(c({}))).toEqual(['all', 'one-of-one']);
     expect(filterTags(c({ standard: 'erc1155' }))).toEqual(['all', 'editions']);
+    // an erc721 edition (Last Selfie or?, 10 tokens of one work) files under editions, not 1/1
+    expect(filterTags(c({ format: 'editions' }))).toEqual(['all', 'editions']);
     expect(filterTags(c({ techniques: ['generative art'], tools: ['on-chain'] }))).toEqual(['all', 'generative', 'on-chain']);
   });
   it('orders the index newest first and keeps experiments apart', () => {
