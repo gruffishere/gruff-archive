@@ -597,3 +597,15 @@ test('every page carries the g icons, and each icon file is served', async ({ pa
     expect((await request.get(p)).status(), p).toBe(200);
   }
 });
+
+test('every page carries a link preview: the wordmark card, or the work itself', async ({ page, request }) => {
+  await checkPage(page, '/');
+  await expect(page.locator('head meta[property="og:image"]')).toHaveAttribute('content', 'https://gruffarchive.art/social-card.png');
+  await expect(page.locator('head meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
+  expect((await request.get('/social-card.png')).status()).toBe(200);
+  await checkPage(page, '/w/oversimulated/22/');
+  const img = await page.locator('head meta[property="og:image"]').getAttribute('content');
+  expect(img).toMatch(/^https:\/\/gruffarchive\.art\/media\/.+\.webp$/);
+  expect((await request.get(new URL(img!).pathname)).status()).toBe(200);
+  await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute('href', 'https://gruffarchive.art/w/oversimulated/22/');
+});

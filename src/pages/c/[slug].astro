@@ -24,7 +24,7 @@ const trailer = trailerEmbed(c.links);
 const trailerCover = trailer ? stillSrc(tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0]) : null;
 const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYear(c)}–${c.lastMint.slice(0, 4)}` : firstYear(c);
 ---
-<Base title={`${c.title} — gruff`} description={c.wallText ?? `${c.title} by gruff, ${span}.`} current={c.section === 'experiments' ? 'experiments' : 'index'}>
+<Base title={`${c.title} — gruff`} description={c.wallText ?? `${c.title} by gruff, ${span}.`} image={stillSrc(tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0])} current={c.section === 'experiments' ? 'experiments' : 'index'}>
   <section class="page">
     <p class="k crumbs"><a class="back" href={c.section === 'experiments' ? '/experiments/' : '/'}>← {c.section === 'experiments' ? 'experiments' : 'index'}</a> · {c.accession}</p>
     <h1 class="title">{c.title}</h1>

@@ -7,7 +7,7 @@ import { collections, meta, tokensOf, type CollectionOut, type TokenOut } from '
 import { toDisplayRows } from '../../../lib/activity';
 import { collectionPath, etherscanToken, openseaItem, originalLink, workPath } from '../../../lib/links';
 import { labelFilename, labelImage, labelLines, safeJson } from '../../../lib/label';
-import { chooseMedia } from '../../../lib/media';
+import { chooseMedia, stillSrc } from '../../../lib/media';
 import { workNav } from '../../../lib/collections';
 
 export function getStaticPaths() {
@@ -29,7 +29,7 @@ for (const r of recent) {
   if (r.to && ens.has(r.to)) r.toName = ens.get(r.to)!;
 }
 ---
-<Base title={`${t.name} — ${c.title} — gruff`} description={t.description ?? `${t.name}, ${c.title} by gruff.`} current={c.section === 'experiments' ? 'experiments' : 'index'}>
+<Base title={`${t.name} — ${c.title} — gruff`} description={t.description ?? `${t.name}, ${c.title} by gruff.`} image={stillSrc(t)} current={c.section === 'experiments' ? 'experiments' : 'index'}>
   <section class="page">
     {/* the artist (2026-11-07): step to the next or previous work right where the count is, without scrolling or leaving */}
     <p class="k crumbs">

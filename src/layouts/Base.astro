@@ -6,8 +6,12 @@ import '@fontsource/dm-mono/500.css';
 import '../styles/global.css';
 import NoteBox from '../components/NoteBox.astro';
 import Header, { type NavName } from '../components/Header.astro';
-interface Props { title: string; description?: string; current?: NavName }
-const { title, description = 'gruff — archive emotions before they fade.', current } = Astro.props;
+/** `image`: a site path for the link preview (a work's still, a collection's cover); the default card otherwise. */
+interface Props { title: string; description?: string; current?: NavName; image?: string | null }
+const { title, description = 'gruff — archive emotions before they fade.', current, image } = Astro.props;
+const site = Astro.site ?? new URL('https://gruffarchive.art');
+const pageUrl = new URL(Astro.url.pathname, site).href;
+const ogImage = new URL(image ?? '/social-card.png', site).href;
 ---
 <!doctype html>
 <html lang="en">
@@ -18,6 +22,16 @@ const { title, description = 'gruff — archive emotions before they fade.', cur
     <meta name="description" content={description} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
+    <!-- link previews on X, Telegram, iMessage: the work itself, or the wordmark card -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="gruff archive" />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <link rel="canonical" href={pageUrl} />
     <meta name="theme-color" content="#000000" />
     <!-- the wordmark's own Castoro "g", centred on black (drawn once from the font into public/) -->
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
