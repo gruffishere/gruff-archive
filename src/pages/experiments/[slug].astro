@@ -13,7 +13,7 @@ export function getStaticPaths() {
 const { room } = Astro.props as { room: Room };
 const commentary = room.commentary ? parseCommentary(readFileSync(`src/content/${room.commentary}`, 'utf8')) : [];
 ---
-<Base title={`${room.title} — gruff`} description={room.text} current="experiments">
+<Base title={`${room.title} — gruff`} description={room.text} current="experiments" image={room.cover}>
   <section class="page">
     <p class="k crumbs"><a class="back" href="/experiments/">← experiments</a></p>
     <h1 class="title">{room.title}</h1>
