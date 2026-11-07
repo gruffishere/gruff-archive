@@ -1,8 +1,10 @@
 ---
 import type { CollectionOut, TokenOut } from '../lib/data';
 import { displayName, formatDate, formatEth, formatUsd, mintValue, shortAddress } from '../lib/format';
-import { etherscanAddress, etherscanToken, openseaItem, platformLinkUnlessListed } from '../lib/links';
+import { etherscanAddress, etherscanToken, etherscanTx, openseaItem, platformLinkUnlessListed } from '../lib/links';
 import { editionText, mintingText, sortOwners } from '../lib/label';
+import { soldLabel } from '../lib/live-price';
+import { isEditions } from '../../indexer/tags';
 interface Props { c: CollectionOut; t: TokenOut; ethUsd: number | null; asOf: string }
 const { c, t, ethUsd, asOf } = Astro.props;
 const year = (t.mint?.at ?? c.firstMint ?? '').slice(0, 4);
@@ -14,6 +16,11 @@ const mintText = t.mint ? mintValue(t.mint) : '—';
 const owners = sortOwners(t.owners.filter((o) => !o.notKeeper));
 const soleOwner = owners[0] ?? t.owners[0];
 const snapshot = t.listing?.priceWei ?? '';
+// not listed but sold before: the last sale takes the price spot, muted and labelled (the artist, 2026-11-07)
+const sold = !t.listing && t.lastSale ? t.lastSale : null;
+// the latest auction's bid war, winner on top (the artist, 2026-11-07)
+const auction = t.auctions?.find((a) => a.bids.length > 0);
+const houseName = (h: string) => (h === 'transient' ? 'transient' : h === 'foundation' ? 'foundation' : h);
 ---
 <div class="label">
   <div class="f">{t.accession}</div>
@@ -21,15 +28,29 @@ const snapshot = t.listing?.priceWei ?? '';
   <div class="k"><span class="lower">gruff</span>{collabs.length > 0 && <> × <span class="collab">{collabs.join(' · ')}</span></>}, {year}</div>
   <hr />
   {t.supply > 0 && (<>
-  <div class="k" id="price-label">{t.listing ? 'listed' : ''}</div>
-  <div class:list={['price', { none: !t.listing }]} id="live-price" data-contract={t.supply > 0 ? c.contract : undefined} data-id={t.id} data-snapshot={snapshot} title={t.listing ? formatUsd(t.listing.priceWei, ethUsd) ?? undefined : undefined}>
-    {t.listing ? formatEth(t.listing.priceWei) : 'not listed'}
+  <div class="k" id="price-label">{t.listing ? 'listed' : sold ? soldLabel(formatDate(sold.at)) : ''}</div>
+  <div class="pricerow">
+    <div class:list={['price', { none: !t.listing && !sold, sold: !!sold }]} id="live-price" data-contract={t.supply > 0 ? c.contract : undefined} data-id={t.id} data-snapshot={snapshot} data-sold={t.lastSale?.priceWei ?? ''} data-sold-at={t.lastSale ? formatDate(t.lastSale.at) : ''}>
+      {t.listing ? formatEth(t.listing.priceWei) : sold ? formatEth(sold.priceWei) : 'not listed'}
+    </div>
+    {/* the dollar value, quiet beside the eth (the artist, 2026-11-07); the live price script keeps it in step */}
+    <span class="usd" id="live-usd" data-rate={ethUsd ?? ''}>{t.listing ? formatUsd(t.listing.priceWei, ethUsd) ?? '' : ''}</span>
   </div>
   <div class="f lower" id="price-note">{t.listing ? `as of ${formatDate(asOf)}` : <a class="offer hit" href={openseaItem(c.contract, t.id)} rel="noopener" target="_blank">make offer ↗</a>}</div>
   </>)}
   {t.mint && <div class="lr"><span class="l">{t.mint.primary ? 'primary' : 'mint'} {formatDate(t.mint.at)}</span><span class="v">{mintText}</span></div>}
-  <div class="lr"><span class="l">last sale</span><span class="v">{t.lastSale ? `${formatEth(t.lastSale.priceWei)} · ${formatDate(t.lastSale.at)}` : 'none'}</span></div>
-  {c.standard === 'erc1155' && c.floorWei && <div class="lr"><span class="l">floor</span><span class="v">{formatEth(c.floorWei)}</span></div>}
+  <div class="lr ls"><span class="l">last sale</span><span class="v">{t.lastSale ? `${formatEth(t.lastSale.priceWei)} · ${formatDate(t.lastSale.at)}` : 'none'}</span></div>
+  {auction && (
+    <details class="bids">
+      <summary class="lr hit"><span class="l">bids · {houseName(auction.house)}</span><span class="v">{auction.bids.length} <span class="caret" aria-hidden="true">▾</span></span></summary>
+      <ul class:list={['klist', { long: auction.bids.length > 30 }]}>
+        {auction.bids.map((b, i) => (
+          <li class="lr"><a class="l hit lower" href={etherscanTx(b.txHash)} target="_blank" rel="noopener">{displayName(b.bidder, b.ens)}{i === 0 && <span class="won"> · won</span>}</a><span class="v">{formatEth(b.priceWei)} <span class="when">{formatDate(b.at)}</span></span></li>
+        ))}
+      </ul>
+    </details>
+  )}
+  {isEditions(c) && c.floorWei && <div class="lr"><span class="l">floor</span><span class="v">{formatEth(c.floorWei)}</span></div>}
   {c.standard === 'erc1155' && owners.length > 1 ? (
     <details class="keepers">
       <summary class="lr hit"><span class="l">keepers</span><span class="v">{t.holderCount} <span class="caret" aria-hidden="true">▾</span></span></summary>
@@ -55,9 +76,16 @@ const snapshot = t.listing?.priceWei ?? '';
 </div>
 <style>
   .title { font: 400 15px/1.3 var(--mono); margin: 6px 0 4px; overflow-wrap: anywhere; }
-  .keepers summary { cursor: pointer; list-style: none; display: flex; width: 100%; }
-  .keepers summary::-webkit-details-marker { display: none; }
-  .keepers[open] .caret { display: inline-block; transform: rotate(180deg); }
+  .keepers summary, .bids summary { cursor: pointer; list-style: none; display: flex; width: 100%; }
+  .keepers summary::-webkit-details-marker, .bids summary::-webkit-details-marker { display: none; }
+  .keepers[open] .caret, .bids[open] .caret { display: inline-block; transform: rotate(180deg); }
+  .won, .when { color: var(--muted); }
+  .pricerow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; }
+  .usd { color: var(--muted); font-size: 14px; letter-spacing: 0; }
+  .usd:empty { display: none; }
+  .price.sold { color: var(--muted); }
+  /* the last sale already stands in the price spot: its row below would only repeat it */
+  .label:has(.price.sold) .ls { display: none; }
   .klist { list-style: none; margin: 0 0 6px; padding: 0 0 0 12px; }
   .klist.long { max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #333 transparent; }
   .klist :global(li.lr) { padding: 0; }

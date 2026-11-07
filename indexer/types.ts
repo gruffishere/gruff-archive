@@ -16,6 +16,8 @@ export interface CollectionConfig {
   tokenIds?: string[];
   techniques: string[];
   tools?: string[];
+  /** Overrides the standard's default: erc1155 = editions, erc721 = one-of-one. */
+  format?: 'one-of-one' | 'editions';
   tokenTechniques?: Record<string, string[]>;
   wallText?: string;
   /** Token metadata source: Blockscout's cache (default) or the contract's own tokenURI. */

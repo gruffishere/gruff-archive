@@ -1,6 +1,6 @@
 import type { CollectionOut } from '../../indexer/aggregate/collections';
 import type { TokenOut } from '../../indexer/aggregate/tokens';
-import { isGenerative, isOnChain } from '../../indexer/tags';
+import { isEditions, isGenerative, isOnChain } from '../../indexer/tags';
 import type { Room } from './rooms';
 
 export type IndexFilter = 'all' | 'one-of-one' | 'editions' | 'generative' | 'on-chain' | 'experiments';
@@ -16,7 +16,7 @@ export const INDEX_FILTERS: { key: IndexFilter; label: string }[] = [
 export function filterTags(c: CollectionOut): IndexFilter[] {
   const tags: IndexFilter[] = ['all'];
   const generative = isGenerative(c);
-  if (c.standard === 'erc1155') tags.push('editions');
+  if (isEditions(c)) tags.push('editions');
   else if (!generative) tags.push('one-of-one');
   if (generative) tags.push('generative');
   if (isOnChain(c)) tags.push('on-chain');

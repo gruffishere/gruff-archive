@@ -31,7 +31,17 @@ for (const r of recent) {
 ---
 <Base title={`${t.name} — ${c.title} — gruff`} description={t.description ?? `${t.name}, ${c.title} by gruff.`} current={c.section === 'experiments' ? 'experiments' : 'index'}>
   <section class="page">
-    <p class="k crumbs"><a class="hit" href={collectionPath(c.slug)}>← {c.title}</a>{n !== null && <> · {String(n).padStart(2, '0')} / {total}</>}</p>
+    {/* the artist (2026-11-07): step to the next or previous work right where the count is, without scrolling or leaving */}
+    <p class="k crumbs">
+      <a class="hit" href={collectionPath(c.slug)}>← {c.title}</a>
+      {n !== null && (
+        <span class="step">
+          {prev ? <a class="arrow" href={workPath(c.slug, prev)} aria-label="previous work">‹</a> : <span class="arrow off" aria-hidden="true">‹</span>}
+          <span class="count">{String(n).padStart(2, '0')} / {total}</span>
+          {next ? <a class="arrow" href={workPath(c.slug, next)} aria-label="next work">›</a> : <span class="arrow off" aria-hidden="true">›</span>}
+        </span>
+      )}
+    </p>
     <div class="body">
       <div class="art">
         {wrap ? <a class="orig-img" href={original.url} target="_blank" rel="noopener" aria-label={`open the original of ${t.name}`}><MediaView token={t} size="large" alt={t.name} eager /></a> : <MediaView token={t} size="large" alt={t.name} eager />}
@@ -50,7 +60,12 @@ for (const r of recent) {
   </section>
 </Base>
 <style>
-  .crumbs { margin: 16px 0 8px; }
+  .crumbs { margin: 16px 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 18px; }
+  .step { display: inline-flex; align-items: center; }
+  .arrow { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; font-size: 20px; line-height: 1; color: var(--fg); }
+  .arrow:hover, .arrow:focus-visible { text-decoration: none; background: #111; }
+  .arrow.off { color: var(--faint); }
+  .count { padding: 0 2px; }
   .body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr); gap: 40px; align-items: start; }
   .art { min-width: 0; }
   .orig-img { display: block; }

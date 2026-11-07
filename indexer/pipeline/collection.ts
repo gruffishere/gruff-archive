@@ -4,6 +4,7 @@ import type { FetchJson } from '../http';
 import { buildBalances, chainEvents, ensMap, type Balances } from '../ledger';
 import { isStored, manifestKey, storeMedia, type ManifestEntry, type MediaDeps, type StoredMedia } from '../media';
 import { mergeEvents } from '../merge-events';
+import { loadHouseSales, saleEvent, type AuctionCache, type HouseSale } from '../auctions';
 import { mintInfo } from '../mint-prices';
 import { seadnFull } from '../seadn';
 import { bestListings, normalizeListing, normalizeOsEvent, type OpenSea } from '../opensea';
@@ -42,6 +43,8 @@ export interface CollectionState {
   ens: Map<string, string>;
   osStatus: 'ok' | 'skipped' | 'error';
   bsStatus: 'ok' | 'error';
+  /** Sales settled on a marketplace's own contract (Transient, Foundation), with their bids. */
+  houseSales: HouseSale[];
   /** Token ids whose image/animation the placeholder guard nulled. */
   placeholderIds: Set<string>;
   /** File names (basename) of the placeholder's stored media: previous media made of these is never carried over or validated. */
@@ -270,7 +273,14 @@ export async function processCollection(cfg: CollectionConfig, ctx: PipelineCont
   };
   const mints = await mintInfo(transfers, getTxValue);
   const os = await loadOpenSea(cfg, ctx);
-  const events = mergeEvents(chainEvents(transfers), os.events);
+  const auctionPath = join(ctx.rawDir, 'auctions', `${cfg.slug}.json`);
+  const auctionCache = readJson<AuctionCache>(auctionPath, { sales: {} });
+  const houseSales = await loadHouseSales(cfg.contract, transfers, auctionCache, ctx.fetchJson, ctx.log);
+  if (Object.keys(auctionCache.sales).length) writeJsonIfChanged(auctionPath, auctionCache);
+  // OpenSea wins where both saw the same sale; the rest come from the houses' own events
+  const osSales = new Set(os.events.filter((e) => e.kind === 'sale' && e.txHash).map((e) => `${e.txHash}:${e.tokenId}`));
+  const houseEvents = houseSales.filter((s) => !osSales.has(`${s.txHash}:${s.tokenId}`)).map((s) => saleEvent(cfg.contract, s));
+  const events = mergeEvents(chainEvents(transfers), [...os.events, ...houseEvents]);
   const media = await loadMedia(cfg, metas, ctx);
   return {
     cfg,
@@ -284,6 +294,7 @@ export async function processCollection(cfg: CollectionConfig, ctx: PipelineCont
     osDescription: os.description,
     media,
     ens: ensMap(transfers),
+    houseSales,
     osStatus: os.status,
     bsStatus: bs.status === 'error' || tr.status === 'error' || txFailures > 0 ? 'error' : 'ok',
     placeholderIds: placeholders.ids,

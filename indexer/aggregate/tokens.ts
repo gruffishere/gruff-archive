@@ -4,6 +4,7 @@ import { DEAD, type Balances, ZERO } from '../ledger';
 import type { StoredMedia } from '../media';
 import { toPublicUrl } from '../originals';
 import { seadnOriginal } from '../seadn';
+import type { HouseSale } from '../auctions';
 import type { ArchiveEvent, CollectionConfig, Listing, MintInfo, TokenMeta } from '../types';
 import { EXCLUDED_HOLDERS, isKeeperAddress } from './exclusions';
 
@@ -25,6 +26,9 @@ export interface TokenOut {
   /** All current owners. `notKeeper` marks the artist and config `excludeHolders`: shown as owners, never counted as keepers. */
   owners: { address: string; ens: string | null; quantity: number; escrow?: true; notKeeper?: true }[];
   recent: ArchiveEvent[];
+  /** Auctions and buy-nows settled on a house's own contract, newest first, each with its bids (newest, the winner, first).
+   *  Absent when the token never sold that way. */
+  auctions?: { house: string; kind: string; at: string; priceWei: string; buyer: string; buyerEns: string | null; bids: { bidder: string; ens: string | null; priceWei: string; txHash: string; at: string }[] }[];
 }
 
 export interface TokenInputs {
@@ -38,6 +42,8 @@ export interface TokenInputs {
   listings: Map<string, Listing>;
   media: Map<string, { image: StoredMedia | null; animation: StoredMedia | null; /** the OpenSea url the image came from, when the token had none of its own */ osImage?: string }>;
   ens: Map<string, string>;
+  /** Sales settled on a marketplace's own contract, with their bids. */
+  houseSales?: HouseSale[];
   /** Config `excludeHolders`: never counted as holders (they still show as owners). */
   excludeHolders?: ReadonlySet<string>;
 }
@@ -78,6 +84,14 @@ export function buildTokens(i: TokenInputs): TokenOut[] {
     .sort(byNumericId);
   const maxId = ids.at(-1) ?? '0';
   const single = i.cfg.tokenIds?.length === 1;
+  const name = (a: string) => i.ens.get(a) ?? null;
+  const salesByToken = new Map<string, HouseSale[]>();
+  for (const sale of i.houseSales ?? []) salesByToken.set(sale.tokenId, [...(salesByToken.get(sale.tokenId) ?? []), sale]);
+  const auctionsOf = (id: string): Pick<TokenOut, 'auctions'> => {
+    const sales = (salesByToken.get(id) ?? []).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+    if (!sales.length) return {};
+    return { auctions: sales.map((x) => ({ house: x.house, kind: x.kind, at: x.at, priceWei: x.priceWei, buyer: x.buyer, buyerEns: name(x.buyer), bids: x.bids.map((b) => ({ bidder: b.bidder, ens: name(b.bidder), priceWei: b.priceWei, txHash: b.txHash, at: b.at })) })) };
+  };
 
   const eventsByToken = new Map<string, ArchiveEvent[]>();
   for (const e of i.events) {
@@ -117,6 +131,7 @@ export function buildTokens(i: TokenInputs): TokenOut[] {
       holderCount: owners.filter((o) => !o.notKeeper).length,
       owners,
       recent: evs.slice(0, 10),
+      ...auctionsOf(id),
     };
   });
 }

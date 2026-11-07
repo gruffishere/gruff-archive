@@ -6,6 +6,7 @@ import { ROOMS, roomDateLabel, roomFilterTags, roomPath } from '../lib/rooms';
 import { chooseMedia } from '../lib/media';
 import { eventLabel, formatEth, formatStamp } from '../lib/format';
 import { collectionPath, workPath } from '../lib/links';
+import { isEditions } from '../../indexer/tags';
 
 const all = collections();
 const entries = ledgerEntries(all, ROOMS);
@@ -48,7 +49,7 @@ const months = timeline().map((t) => t.month);
               <span class="m wk">—</span>
             </a>
           ) : c && (
-            <a class="row" href={collectionPath(c.slug)} data-code={c.code} data-exp={c.section === 'experiments' ? 'true' : undefined} data-filters={filterTags(c).join(' ')} data-preview={preview ?? ''} data-title={c.title} data-year={firstYear(c)} data-meta={`${c.accession} · ${c.standard === 'erc1155' ? `${c.pieces} pieces` : `${c.works} works`}`} data-price={price ?? ''}>
+            <a class="row" href={collectionPath(c.slug)} data-code={c.code} data-exp={c.section === 'experiments' ? 'true' : undefined} data-filters={filterTags(c).join(' ')} data-preview={preview ?? ''} data-title={c.title} data-year={firstYear(c)} data-meta={`${c.accession} · ${isEditions(c) ? `${c.pieces} pieces` : `${c.works} works`}`} data-price={price ?? ''}>
               {cover && preview ? <img class="th" src={chooseMedia(cover, 'thumb').src ?? preview} alt="" loading="lazy" /> : <span class="th" aria-hidden="true"></span>}
               <span class="k no">{c.accession}</span>
               <span class="lead ti">{c.section === 'experiments' && <span class="exp">exp.</span>}<span class="tt">{c.title}</span>{c.minting && <span class="mint lower">still minting</span>}</span>

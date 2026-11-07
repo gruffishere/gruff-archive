@@ -8,14 +8,14 @@ export function buildCollectionOutputs(i: {
   cfg: CollectionConfig;
   artist: string;
   year: number;
-  st: Pick<CollectionState, 'metas' | 'balances' | 'mints' | 'events' | 'listings' | 'media' | 'ens' | 'floorWei' | 'osDescription' | 'placeholderIds' | 'placeholderFiles'>;
+  st: Pick<CollectionState, 'metas' | 'balances' | 'mints' | 'events' | 'listings' | 'media' | 'ens' | 'floorWei' | 'osDescription' | 'placeholderIds' | 'placeholderFiles'> & { houseSales?: CollectionState['houseSales'] };
   prevTokens: TokenOut[] | undefined;
   staleSince: string | null;
   excludeHolders?: ReadonlySet<string>;
 }): { tokens: TokenOut[]; collection: CollectionOut } {
   const { cfg, artist, year, st } = i;
   const tokens = carryOverMedia(
-    buildTokens({ cfg, artist, year, metas: st.metas, balances: st.balances, mints: st.mints, events: st.events, listings: st.listings, media: st.media, ens: st.ens, excludeHolders: i.excludeHolders }),
+    buildTokens({ cfg, artist, year, metas: st.metas, balances: st.balances, mints: st.mints, events: st.events, listings: st.listings, media: st.media, ens: st.ens, houseSales: st.houseSales ?? [], excludeHolders: i.excludeHolders }),
     i.prevTokens ?? [],
     st.placeholderIds,
     st.placeholderFiles,

@@ -104,17 +104,26 @@ describe('edition and keeper lines', () => {
 });
 
 describe('numbered edition', () => {
-  it('reads 1/1/<works> for an erc721 collection of several works', () => {
-    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 673 })).toBe('1/1/673 · erc-721');
-    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 2 })).toBe('1/1/2 · erc-721');
+  // The artist (2026-11-07): 1/1/<n> belongs only to a series (a generative set, or a capped mint like Pulverulents).
+  // A collection of separate 1/1s (oversimulated, ICON's) is plain 1/1, and an erc721 edition (Last Selfie or?) is an edition.
+  const gen = { standard: 'erc721', works: 673, techniques: ['generative art', 'vector illustration'] } as const;
+  it('reads 1/1/<works> for a generative series, and 1/1/<cap> for a capped mint', () => {
+    expect(editionText({ supply: 1 }, gen)).toBe('1/1/673 · erc-721');
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 17, supplyCap: 69, techniques: ['vector illustration', 'glitch art'] })).toBe('1/1/69 · erc-721');
   });
-  it('keeps 1/1 for a single-work collection and leaves the other rows alone', () => {
-    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 1 })).toBe('1/1 · erc-721');
-    expect(editionText({ supply: 25 }, { standard: 'erc1155', works: 40 })).toBe('edition of 25 · erc-1155');
-    expect(editionText({ supply: 0 }, { standard: 'erc721', works: 673 })).toBe('none in circulation · erc-721');
+  it('keeps a collection of separate one-of-ones at 1/1, however many works it holds', () => {
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 24, techniques: ['glitch art'] })).toBe('1/1 · erc-721');
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 1, techniques: ['vector illustration'] })).toBe('1/1 · erc-721');
+  });
+  it('reads an erc721 edition as an edition of its works', () => {
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 10, techniques: ['vector illustration'], format: 'editions' })).toBe('edition of 10 · erc-721');
+  });
+  it('leaves the other rows alone', () => {
+    expect(editionText({ supply: 25 }, { standard: 'erc1155', works: 40, techniques: [] })).toBe('edition of 25 · erc-1155');
+    expect(editionText({ supply: 0 }, gen)).toBe('none in circulation · erc-721');
   });
   it('appears on the print label', () => {
-    const lines = labelLines(t, { ...c, works: 673 } as CollectionOut).map((l) => l.text);
+    const lines = labelLines(t, { ...c, works: 673, techniques: ['generative art'] } as CollectionOut).map((l) => l.text);
     expect(lines).toContain('1/1/673 · erc-721');
   });
 });
@@ -122,7 +131,7 @@ describe('numbered edition', () => {
 describe('supply cap and still minting', () => {
   it('uses the supply cap as the denominator when there is one', () => {
     expect(editionText({ supply: 1 }, { standard: 'erc721', works: 17, supplyCap: 69 })).toBe('1/1/69 · erc-721');
-    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 673, supplyCap: null })).toBe('1/1/673 · erc-721');
+    expect(editionText({ supply: 1 }, { standard: 'erc721', works: 673, supplyCap: null, techniques: ['generative art'] })).toBe('1/1/673 · erc-721');
     expect(editionText({ supply: 25 }, { standard: 'erc1155', works: 3, supplyCap: 69 })).toBe('edition of 25 · erc-1155');
   });
   it('reads 1/1/69 on the print label', () => {

@@ -127,6 +127,11 @@ collections:
     expect(() => parseConfig(base('code art', ', tools: [blender]'))).toThrow();
     expect(parseConfig(base('code art', ', tools: [three.js, on-chain]')).collections[0].tools).toEqual(['three.js', 'on-chain']);
   });
+  it('marks Last Selfie or? as an erc721 edition, the only one (the artist, 2026-11-07)', () => {
+    const cols = loadConfig().collections;
+    expect(cols.filter((c) => c.format === 'editions').map((c) => c.code)).toEqual(['LSO']);
+    expect(() => parseConfig('artist: "0x4730497622bdfd6eafe1f09fa22b3a0aca94a646"\ncollections:\n  - { code: AAA, slug: a, title: "A", contract: "0x0000000000000000000000000000000000000001", standard: erc721, platform: custom, section: index, techniques: [glitch art], format: series }\n')).toThrow();
+  });
   it('tags the real collections as the artist set them (2026-11-06)', () => {
     const cols = loadConfig().collections;
     const codes = (f: (c: (typeof cols)[number]) => boolean) => cols.filter(f).map((c) => c.code).sort();
