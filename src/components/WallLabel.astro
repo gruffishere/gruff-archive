@@ -4,6 +4,7 @@ import { displayName, formatDate, formatEth, formatUsd, mintValue, shortAddress 
 import { etherscanAddress, etherscanToken, etherscanTx, openseaItem, platformLinkUnlessListed } from '../lib/links';
 import { editionText, mintingText, sortOwners } from '../lib/label';
 import { soldLabel } from '../lib/live-price';
+import { ethParts } from '../lib/price-parts';
 import { isEditions } from '../../indexer/tags';
 interface Props { c: CollectionOut; t: TokenOut; ethUsd: number | null; asOf: string }
 const { c, t, ethUsd, asOf } = Astro.props;
@@ -18,6 +19,10 @@ const soleOwner = owners[0] ?? t.owners[0];
 const snapshot = t.listing?.priceWei ?? '';
 // not listed but sold before: the last sale takes the price spot, muted and labelled (the artist, 2026-11-07)
 const sold = !t.listing && t.lastSale ? t.lastSale : null;
+const bigText = t.listing ? formatEth(t.listing.priceWei) ?? '' : sold ? formatEth(sold.priceWei) ?? '' : 'not listed';
+const big = ethParts(bigText);
+// the dollar value of the eth shown, at today's rate, beside a listing and beside a last sale alike (the artist, 2026-11-07)
+const usdText = t.listing ? formatUsd(t.listing.priceWei, ethUsd) : sold ? formatUsd(sold.priceWei, ethUsd) : null;
 // the latest auction's bid war, winner on top (the artist, 2026-11-07)
 const auction = t.auctions?.find((a) => a.bids.length > 0);
 const houseName = (h: string) => (h === 'transient' ? 'transient' : h === 'foundation' ? 'foundation' : h);
@@ -31,10 +36,10 @@ const houseName = (h: string) => (h === 'transient' ? 'transient' : h === 'found
   <div class="k" id="price-label">{t.listing ? 'listed' : sold ? soldLabel(formatDate(sold.at)) : ''}</div>
   <div class="pricerow">
     <div class:list={['price', { none: !t.listing && !sold, sold: !!sold }]} id="live-price" data-contract={t.supply > 0 ? c.contract : undefined} data-id={t.id} data-snapshot={snapshot} data-sold={t.lastSale?.priceWei ?? ''} data-sold-at={t.lastSale ? formatDate(t.lastSale.at) : ''}>
-      {t.listing ? formatEth(t.listing.priceWei) : sold ? formatEth(sold.priceWei) : 'not listed'}
+      {big ? <><span class="num">{big.num}</span><span class="cur">{big.cur}</span></> : bigText}
     </div>
     {/* the dollar value, quiet beside the eth (the artist, 2026-11-07); the live price script keeps it in step */}
-    <span class="usd" id="live-usd" data-rate={ethUsd ?? ''}>{t.listing ? formatUsd(t.listing.priceWei, ethUsd) ?? '' : ''}</span>
+    <span class="usd" id="live-usd" data-rate={ethUsd ?? ''}>{usdText ?? ''}</span>
   </div>
   <div class="f lower" id="price-note">{t.listing ? `as of ${formatDate(asOf)}` : <a class="offer hit" href={openseaItem(c.contract, t.id)} rel="noopener" target="_blank">make offer ↗</a>}</div>
   </>)}

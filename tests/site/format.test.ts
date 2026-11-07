@@ -21,6 +21,10 @@ describe('format', () => {
   it('formats usd from eth price', () => {
     expect(formatUsd('450000000000000000', 2260.91)).toBe('$1,017');
     expect(formatUsd('450000000000000000', null)).toBeNull();
+    // under a dollar the cents carry it, never a bare $0 (0.0001 eth, the artist's review 2026-11-07)
+    expect(formatUsd('100000000000000', 2238.63)).toBe('$0.22');
+    expect(formatUsd('1000000000000', 2238.63)).toBe('<$0.01');
+    expect(formatUsd('2000000000000000', 2238.63)).toBe('$4');
   });
   it('formats addresses and names', () => {
     expect(shortAddress('0x7a3b000000000000000000000000000000000e91')).toBe('0x7a3…e91');

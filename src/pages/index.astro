@@ -1,22 +1,24 @@
 ---
 import Base from '../layouts/Base.astro';
 import { collections, latestActivity, meta, timeline, tokensOf } from '../lib/data';
-import { archiveSpan, countLabel, filterTags, firstYear, INDEX_FILTERS, ledgerCounts, ledgerEntries } from '../lib/collections';
+import { archiveSpan, countLabel, filterTags, firstYear, INDEX_FILTERS, ledgerCounts, ledgerEntries, previewPrice } from '../lib/collections';
 import { ROOMS, roomDateLabel, roomFilterTags, roomPath } from '../lib/rooms';
 import { chooseMedia } from '../lib/media';
-import { eventLabel, formatEth, formatStamp } from '../lib/format';
+import { eventLabel, formatEth, formatStamp, formatUsd } from '../lib/format';
 import { collectionPath, workPath } from '../lib/links';
 import { isEditions } from '../../indexer/tags';
 
 const all = collections();
 const entries = ledgerEntries(all, ROOMS);
 const rows = entries.map((e) => {
-  if (e.kind === 'room') return { room: e.room, c: null, cover: null, preview: e.room.cover, price: null };
+  if (e.kind === 'room') return { room: e.room, c: null, cover: null, preview: e.room.cover, price: null, pp: null };
   const c = e.c;
   const cover = tokensOf(c.slug).find((t) => t.id === c.coverTokenId) ?? tokensOf(c.slug)[0];
   const preview = cover ? (chooseMedia(cover, 'large').kind === 'img' && !cover.image?.animated ? chooseMedia(cover, 'large').src : chooseMedia(cover, 'thumb').src) : null;
-  const price = cover?.listing ? formatEth(cover.listing.priceWei) : null;
-  return { room: null, c, cover, preview, price };
+  // the lowest listing in the collection, else its latest sale (the artist, 2026-11-07); no longer the cover's listing only
+  const pp = previewPrice(c, tokensOf(c.slug));
+  const price = pp ? formatEth(pp.priceWei) : null;
+  return { room: null, c, cover, preview, price, pp };
 });
 const { collections: colCount, experiments: expCount } = ledgerCounts(entries);
 const m = meta();
@@ -39,7 +41,7 @@ const months = timeline().map((t) => t.month);
       <div>
         <div class="row head f" aria-hidden="true"><span class="no">no.</span><span class="ti">title</span><span class="pl">platform</span><span class="yr">year</span><span class="wk">works</span></div>
         <div id="ledger">
-          {rows.map(({ room, c, cover, preview, price }) => room ? (
+          {rows.map(({ room, c, cover, preview, price, pp }) => room ? (
             <a class="row" href={roomPath(room.slug)} data-code={`room:${room.slug}`} data-since={room.since} data-exp="true" data-filters={roomFilterTags().join(' ')} data-preview={preview ?? ''} data-title={room.title} data-year={String(room.year)} data-meta={room.status} data-price="">
               <img class="th" src={room.cover} alt="" loading="lazy" />
               <span class="k no">{roomDateLabel(room)}</span>
@@ -49,7 +51,7 @@ const months = timeline().map((t) => t.month);
               <span class="m wk">—</span>
             </a>
           ) : c && (
-            <a class="row" href={collectionPath(c.slug)} data-code={c.code} data-exp={c.section === 'experiments' ? 'true' : undefined} data-filters={filterTags(c).join(' ')} data-preview={preview ?? ''} data-title={c.title} data-year={firstYear(c)} data-meta={`${c.accession} · ${isEditions(c) ? `${c.pieces} pieces` : `${c.works} works`}`} data-price={price ?? ''}>
+            <a class="row" href={collectionPath(c.slug)} data-code={c.code} data-exp={c.section === 'experiments' ? 'true' : undefined} data-filters={filterTags(c).join(' ')} data-preview={preview ?? ''} data-title={c.title} data-year={firstYear(c)} data-meta={`${c.accession} · ${isEditions(c) ? `${c.pieces} pieces` : `${c.works} works`}`} data-price={price ?? ''} data-price-label={pp?.label ?? ''} data-price-kind={pp?.kind ?? ''} data-usd={pp ? formatUsd(pp.priceWei, meta().ethUsd) ?? '' : ''}>
               {cover && preview ? <img class="th" src={chooseMedia(cover, 'thumb').src ?? preview} alt="" loading="lazy" /> : <span class="th" aria-hidden="true"></span>}
               <span class="k no">{c.accession}</span>
               <span class="lead ti">{c.section === 'experiments' && <span class="exp">exp.</span>}<span class="tt">{c.title}</span>{c.minting && <span class="mint lower">still minting</span>}</span>
@@ -66,7 +68,7 @@ const months = timeline().map((t) => t.month);
           <div class="k" id="pv-meta"></div>
           <div id="pv-title"></div>
           <div class="k" id="pv-listed-label">listed</div>
-          <div class="price" id="pv-price"></div>
+          <div class="pvrow"><div class="price" id="pv-price"></div><span class="usd" id="pv-usd"></span></div>
           <div class="m lower" id="pv-unlisted" hidden>not listed</div>
         </div>
       </aside>
@@ -111,6 +113,10 @@ const months = timeline().map((t) => t.month);
   .pv.on { opacity: 1; }
   .pv img { width: 100%; max-height: 62vh; object-fit: contain; }
   .lbl { margin-top: 14px; font-size: 11px; line-height: 1.7; }
+  .pvrow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 10px; }
+  .price.sold { color: var(--muted); }
+  .usd { color: var(--muted); font-size: 13px; }
+  .usd:empty { display: none; }
   .foot { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 11px; padding-top: 0; flex-wrap: wrap; }
   @media (max-width: 1023px) {
     .grid { grid-template-columns: minmax(0, 1fr); }

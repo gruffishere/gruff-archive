@@ -1,3 +1,4 @@
+import { writePrice } from '../lib/price-parts';
 import { countLabel } from '../lib/collections';
 import { archiveAt, monthLabel, roomVisibleAt } from '../lib/timeline';
 import type { TimelineMonth } from '../../indexer/aggregate/timeline';
@@ -41,8 +42,12 @@ for (const r of rows) {
       title.replaceChildren(`${r.dataset.title ?? ''} — `, artist, `, ${r.dataset.year ?? ''}`);
     }
     const price = r.dataset.price ?? '';
-    set('pv-price', price);
-    for (const id of ['pv-listed-label', 'pv-price']) document.getElementById(id)?.toggleAttribute('hidden', !price);
+    const pvPrice = document.getElementById('pv-price');
+    if (pvPrice) writePrice(pvPrice, price);
+    set('pv-listed-label', r.dataset.priceLabel || 'listed');
+    set('pv-usd', r.dataset.usd ?? '');
+    document.getElementById('pv-price')?.classList.toggle('sold', r.dataset.priceKind === 'sold');
+    for (const id of ['pv-listed-label', 'pv-price', 'pv-usd']) document.getElementById(id)?.toggleAttribute('hidden', !price);
     document.getElementById('pv-unlisted')?.toggleAttribute('hidden', !!price || !!r.dataset.since);
     pv.classList.add('on');
   };

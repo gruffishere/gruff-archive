@@ -22,6 +22,8 @@ img, video, iframe { max-width: 100%; display: block; }
 .lr > .l { display: flex; flex: 1; gap: 8px; color: var(--dim); }
 .lr > .l::after { content: ''; flex: 1; border-bottom: 1px dotted var(--dot); transform: translateY(-4px); }
 .lr > .v { text-transform: none; text-align: right; }
+/* the Ξ small and close after a big price: the space inside it is narrowed too */
+.price .cur { font-size: .5em; letter-spacing: 0; word-spacing: -.25em; }
 .price { font-size: 44px; font-weight: 500; letter-spacing: -.02em; line-height: 1; text-transform: none; margin: 6px 0 10px; }
 hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 .chip { color: var(--faint); background: none; border: 0; font: inherit; text-transform: inherit; cursor: pointer; padding: 6px 6px; min-height: 44px; }
