@@ -21,10 +21,13 @@ describe('inventory workflow', () => {
     expect(wf.permissions.contents).toBe('write');
   });
 
-  it('renormalizes public/media before staging (binary per .gitattributes)', () => {
+  it('stages data and media first, then renormalizes public/media (binary per .gitattributes)', () => {
+    // in this order a media file the run removed is already out of the index, so --renormalize never stats it (exit 128)
     const commit = wf.jobs.inventory.steps.find((s: { name?: string }) => s.name === 'Commit snapshot');
-    expect(commit.run).toContain('--renormalize');
-    expect(commit.run.indexOf('--renormalize')).toBeLessThan(commit.run.indexOf('git add data public/media'));
+    const stage = commit.run.indexOf('\ngit add data public/media');
+    const renorm = commit.run.indexOf('\ngit add --renormalize public/media');
+    expect(stage).toBeGreaterThan(-1);
+    expect(renorm).toBeGreaterThan(stage);
   });
 
   it('rebases onto origin before pushing the snapshot', () => {
