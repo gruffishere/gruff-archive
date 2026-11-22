@@ -34,13 +34,33 @@ export function createFetchJson(
       lastRequest = Date.now();
 
       let res: Response;
+      const ac = new AbortController();
+      // The timer ends the wait itself, not only through the signal: on 2026-11-23 a stalled OpenSea response never
+      // saw its AbortSignal.timeout() and a run hung on it for over an hour. It covers the body as well as the headers.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timedOut = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          const err = new Error(`timed out after ${timeoutMs} ms`);
+          ac.abort(err);
+          reject(err);
+        }, timeoutMs);
+      });
       try {
-        res = await doFetch(url, { headers: { accept: 'application/json', ...init?.headers }, signal: AbortSignal.timeout(timeoutMs) });
-        if (res.ok) return (await res.json()) as T;
+        const got = await Promise.race([
+          (async () => {
+            const r = await doFetch(url, { headers: { accept: 'application/json', ...init?.headers }, signal: ac.signal });
+            return { r, json: r.ok ? ((await r.json()) as T) : undefined };
+          })(),
+          timedOut,
+        ]);
+        res = got.r;
+        if (res.ok) return got.json as T;
       } catch (err) {
         if (attempt >= retries) throw err;
         await sleep(1000 * 2 ** attempt);
         continue;
+      } finally {
+        clearTimeout(timer);
       }
       if ((res.status === 429 || res.status >= 500) && attempt < retries) {
         await sleep(1000 * 2 ** attempt);

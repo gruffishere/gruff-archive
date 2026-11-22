@@ -148,7 +148,11 @@ async function main() {
   log(`done: ${collections.length} collections, ${keepers.length} keepers, ${missingMedia.length} tokens without media`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main().then(
+  // end once the work is done: a request that timed out can leave its connection open and keep the process alive
+  () => process.exit(process.exitCode ?? 0),
+  (err) => {
+    console.error(err);
+    process.exit(1);
+  },
+);
