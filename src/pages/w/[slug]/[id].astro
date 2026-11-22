@@ -1,6 +1,7 @@
 ---
 import Base from '../../../layouts/Base.astro';
 import MediaView from '../../../components/MediaView.astro';
+import LiveWork from '../../../components/LiveWork.astro';
 import WallLabel from '../../../components/WallLabel.astro';
 import ActivityTable from '../../../components/ActivityTable.astro';
 import { collections, meta, tokensOf, type CollectionOut, type TokenOut } from '../../../lib/data';
@@ -44,7 +45,7 @@ for (const r of recent) {
     </p>
     <div class="body">
       <div class="art">
-        {wrap ? <a class="orig-img" href={original.url} target="_blank" rel="noopener" aria-label={`open the original of ${t.name}`}><MediaView token={t} size="large" alt={t.name} eager /></a> : <MediaView token={t} size="large" alt={t.name} eager />}
+        {c.liveWork === 'chain' ? <LiveWork token={t} contract={c.contract} alt={t.name} /> : wrap ? <a class="orig-img" href={original.url} target="_blank" rel="noopener" aria-label={`open the original of ${t.name}`}><MediaView token={t} size="large" alt={t.name} eager /></a> : <MediaView token={t} size="large" alt={t.name} eager />}
         {original && <p class="f orig"><a class="hit" href={original.url} target="_blank" rel="noopener">original ↗</a> <span class="where">{original.where}</span></p>}
       </div>
       <aside><WallLabel c={c} t={t} ethUsd={m.ethUsd} asOf={m.lastInventory} /></aside>

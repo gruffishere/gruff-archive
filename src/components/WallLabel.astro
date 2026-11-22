@@ -1,6 +1,7 @@
 ---
 import type { CollectionOut, TokenOut } from '../lib/data';
 import { displayName, formatDate, formatEth, formatUsd, mintValue, shortAddress } from '../lib/format';
+import { fillWorkLinks } from '../lib/work-links';
 import { etherscanAddress, etherscanToken, etherscanTx, openseaItem, platformLinkUnlessListed } from '../lib/links';
 import { editionText, mintingText, sortOwners } from '../lib/label';
 import { soldLabel } from '../lib/live-price';
@@ -16,6 +17,8 @@ const mintText = t.mint ? mintValue(t.mint) : '—';
 // The keepers list matches its count: the artist's own copies and excluded holders are not keepers.
 const owners = sortOwners(t.owners.filter((o) => !o.notKeeper));
 const soleOwner = owners[0] ?? t.owners[0];
+// {owner} links (a Glyphora's garden) need exactly one current owner
+const workLinks = fillWorkLinks(c.workLinks ?? [], { id: t.id, owner: t.owners.length === 1 ? t.owners[0].address : null });
 const snapshot = t.listing?.priceWei ?? '';
 // not listed but sold before: the last sale takes the price spot, muted and labelled (the artist, 2026-11-07)
 const sold = !t.listing && t.lastSale ? t.lastSale : null;
@@ -76,6 +79,7 @@ const houseName = (h: string) => (h === 'transient' ? 'transient' : h === 'found
     <a class="hit" href={openseaItem(c.contract, t.id)} rel="noopener" target="_blank">opensea ↗</a>
     {platform && <a class="hit" href={platform.url} rel="noopener" target="_blank">{platform.label} ↗</a>}
     {(c.links ?? []).map((l) => <a class="hit" href={l.url} rel="noopener" target="_blank">{l.label} ↗</a>)}
+    {workLinks.map((l) => <a class="hit" href={l.url} rel="noopener" target="_blank">{l.label} ↗</a>)}
   </p>
   <button class="print" type="button" id="print-label">print label ↓</button>
 </div>

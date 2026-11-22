@@ -63,4 +63,27 @@ describe('createFetchJson timeout (M11)', () => {
     await fetchJson('https://x.test/t');
     expect(signal).toBeInstanceOf(AbortSignal);
   });
+
+  // 2026-11-23: an OpenSea response stalled and the abort never reached the transport, so a local run hung for over
+  // an hour on one request. The timeout must end the wait on its own, whatever the transport does with the signal.
+  it('gives up on a request whose transport ignores the abort, then retries', async () => {
+    let calls = 0;
+    const fetchJson = createFetchJson({
+      fetchImpl: () => {
+        calls++;
+        return calls === 1 ? new Promise<Response>(() => {}) : Promise.resolve(new Response('{"ok":1}', { status: 200 }));
+      },
+      sleepImpl: noSleep,
+      minIntervalMs: 0,
+      timeoutMs: 20,
+    });
+    await expect(fetchJson('https://x.test/t')).resolves.toEqual({ ok: 1 });
+    expect(calls).toBe(2);
+  });
+
+  it('gives up on a body that stops arriving', async () => {
+    const stalled = () => new Response(new ReadableStream({ start: (c) => c.enqueue(new TextEncoder().encode('{"a":')) }), { status: 200 });
+    const fetchJson = createFetchJson({ fetchImpl: async () => stalled(), sleepImpl: noSleep, minIntervalMs: 0, timeoutMs: 20, retries: 1 });
+    await expect(fetchJson('https://x.test/t')).rejects.toThrow(/timed out after 20 ms/);
+  });
 });

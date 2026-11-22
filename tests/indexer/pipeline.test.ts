@@ -154,6 +154,43 @@ describe('processCollection Blockscout failures (M1)', () => {
   });
 });
 
+// 2026-11-23: bots relisted Glyphoras ~500,000 times in four days (965 sales). Those listing events made a 170 MB cache
+// and a 250 MB activity month, so a collection can take its sales alone from OpenSea.
+describe('processCollection with osEvents: sales', () => {
+  const day = (d: string) => Math.floor(Date.parse(d) / 1000);
+  const rawSale = { event_type: 'sale', event_timestamp: day('2026-11-20T10:00:00Z'), transaction: '0xs2', order_hash: '0xo2', nft: { identifier: '2', contract: '0xabc' }, quantity: 1, seller: '0xa', buyer: '0xb', payment: { quantity: '1', decimals: 18, symbol: 'ETH' } };
+  const cachedSale = { id: 'os:0xo1:0xs1:1:sale', kind: 'sale', contract: '0xabc', tokenId: '1', quantity: 1, from: '0xa', to: '0xb', priceWei: '1', txHash: '0xs1', timestamp: '2026-11-19T10:00:00.000Z' };
+  const cachedListing = { id: 'os:0xo9:1:listed', kind: 'listed', contract: '0xabc', tokenId: '1', quantity: 1, from: '0xb', to: null, priceWei: '2', txHash: null, timestamp: '2026-11-21T10:00:00.000Z' };
+
+  it('asks OpenSea for sales alone and drops cached listing events', async () => {
+    const kinds: unknown[] = [];
+    const afters: number[] = [];
+    const os = {
+      slug: async () => 'test-',
+      events: async function* (_s: string, after: number, k?: unknown) {
+        kinds.push(k);
+        afters.push(after);
+        yield rawSale;
+      },
+      listings: async function* () {},
+      floorWei: async () => null,
+      collection: async () => ({ description: null }),
+      nftImageUrl: async () => null,
+    } as unknown as OpenSea;
+    const { ctx, dir } = ctxWith({ os });
+    mkdirSync(join(dir, 'raw', 'os-events'), { recursive: true });
+    writeFileSync(join(dir, 'raw', 'os-events', 'test.json'), JSON.stringify([cachedSale, cachedListing]));
+    const st = await processCollection({ ...cfg, osEvents: 'sales' }, ctx);
+    expect(kinds).toEqual([['sale']]);
+    // the listing no longer moves the resume point: a day before the newest cached sale
+    expect(afters).toEqual([day('2026-11-18T10:00:00Z')]);
+    expect(st.events.filter((e) => e.kind === 'listed')).toEqual([]);
+    expect(st.events.filter((e) => e.kind === 'sale').map((e) => e.tokenId).sort()).toEqual(['1', '2']);
+    const stored = JSON.parse(readFileSync(join(dir, 'raw', 'os-events', 'test.json'), 'utf8')) as { kind: string }[];
+    expect(stored.map((e) => e.kind)).toEqual(['sale', 'sale']);
+  });
+});
+
 describe('loadMedia OpenSea fallback at full size', () => {
   const small = 'https://i2c.seadn.io/ethereum/0xabc/p.png';
   const full = `${small}?w=2000`;
@@ -190,5 +227,17 @@ describe('loadMedia OpenSea fallback at full size', () => {
     const { ctx } = ctxWith({ os }, { 'https://a/1.png': { bytes: png, mime: 'image/png' } });
     const media = await loadMedia(cfg, new Map([['1', meta('1', { image: 'https://a/1.png' })]]), ctx);
     expect(media.get('1')!.osImage).toBeUndefined();
+  });
+});
+
+describe('loadMedia for live works (Glyphoras)', () => {
+  it('stores the still but never the animation when the live work is read from the chain', async () => {
+    const html = Buffer.from('<!doctype html><html><body>flower</body></html>');
+    const { ctx, download } = ctxWith({}, { 'https://a/1.png': { bytes: png, mime: 'image/png' }, 'https://a/1.html': { bytes: html, mime: 'text/html' } });
+    const live = { ...cfg, liveWork: 'chain' as const };
+    const out = await loadMedia(live, new Map([['1', meta('1', { image: 'https://a/1.png', animation: 'https://a/1.html' })]]), ctx);
+    expect(out.get('1')!.image?.kind).toBe('image');
+    expect(out.get('1')!.animation).toBeNull();
+    expect(download.mock.calls.map((c) => c[0])).toEqual(['https://a/1.png']);
   });
 });

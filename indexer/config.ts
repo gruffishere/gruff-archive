@@ -30,6 +30,10 @@ const collectionSchema = z.object({
   supplyCap: z.number().int().positive().optional(),
   mintClosed: z.boolean().optional(),
   links: z.array(z.object({ label: z.string().min(1), url: z.string().url().startsWith('https://') }).strict()).optional(),
+  liveWork: z.literal('chain').optional(),
+  osEvents: z.literal('sales').optional(),
+  workLinks: z.array(z.object({ label: z.string().min(1), url: z.string().startsWith('https://') }).strict()).optional(),
+  garden: z.object({ base: z.string().url().startsWith('https://'), start: z.string().min(1), poster: z.string().regex(/^\/[^/]/) }).strict().optional(),
 }).strict();
 
 const fileSchema = z.object({

@@ -32,6 +32,14 @@ export interface CollectionConfig {
   mintClosed?: boolean;
   /** Quiet links shown under the collection meta line and on each work label. */
   links?: { label: string; url: string }[];
+  /** The live work is read from the contract when a visitor plays it; the indexer stores no animation copies. */
+  liveWork?: 'chain';
+  /** `sales`: take only sales from OpenSea events, no listing events (bots relisted Glyphoras ~500k times in four days). */
+  osEvents?: 'sales';
+  /** Extra links on each work label: URL templates with {id} and {owner}. */
+  workLinks?: { label: string; url: string }[];
+  /** A click-to-load window on the collection page: base + an address or ENS, starting at `start`. */
+  garden?: { base: string; start: string; poster: string };
 }
 
 export interface RawTransfer {
