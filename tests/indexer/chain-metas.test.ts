@@ -163,3 +163,31 @@ describe('resolveChainMetas: legacy cache migration (I4)', () => {
     expect(JSON.parse(raw)['1'].meta.animation).toBe('=image');
   });
 });
+
+describe('resolveChainMetas: live works keep no animation (Glyphoras)', () => {
+  const live = { slug: 'glyphoras', contract: '0xabc', liveWork: 'chain' } as CollectionConfig;
+  const html = 'data:text/html;base64,' + Buffer.from('<!doctype html>' + 'x'.repeat(5000)).toString('base64');
+  const svg = 'data:image/svg+xml;base64,' + Buffer.from('<svg/>').toString('base64');
+  const uri = 'data:application/json,' + encodeURIComponent(JSON.stringify({ name: 'Glyphora #1', image: svg, animation_url: html }));
+
+  it('never caches the live page: the site reads it from the contract', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'chain-'));
+    const out = await resolveChainMetas(live, new Map([['1', bsMeta('1')]]), [], { rpc: vi.fn(async () => abi(uri)), rawDir: dir, log: () => {}, now: () => now });
+    expect(out.get('1')).toMatchObject({ name: 'Glyphora #1', image: svg, animation: null });
+    const raw = readFileSync(join(dir, 'metas-chain', 'glyphoras.json'), 'utf8');
+    expect(raw).not.toContain('text/html');
+    expect(raw.length).toBeLessThan(1000);
+  });
+
+  it('drops a live page already in the cache and rewrites the file, without refetching', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'chain-'));
+    mkdirSync(join(dir, 'metas-chain'));
+    const path = join(dir, 'metas-chain', 'glyphoras.json');
+    writeFileSync(path, JSON.stringify({ '1': { meta: { name: 'Glyphora #1', description: null, image: svg, animation: html }, fetchedAt: now.toISOString() } }));
+    const rpc = vi.fn(async () => abi(uri));
+    const out = await resolveChainMetas(live, new Map([['1', bsMeta('1')]]), [], { rpc, rawDir: dir, log: () => {}, now: () => now });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(out.get('1')?.animation).toBeNull();
+    expect(readFileSync(path, 'utf8')).not.toContain('text/html');
+  });
+});

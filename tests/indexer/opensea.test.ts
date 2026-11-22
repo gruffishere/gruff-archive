@@ -130,6 +130,14 @@ describe('createOpenSea', () => {
     expect(keys).toEqual(['KEY', 'KEY']);
   });
 
+  it('asks for sales alone when told to', async () => {
+    const urls: string[] = [];
+    const fetchJson = (async (url: string) => (urls.push(url), { asset_events: [sale], next: null })) as unknown as FetchJson;
+    const os = createOpenSea(fetchJson, 'KEY');
+    for await (const _ of os.events('glyphoras-', 1700000000, ['sale'])) void _;
+    expect(urls[0]).toContain('/events/collection/glyphoras-?event_type=sale&after=1700000000&limit=50');
+  });
+
   it('returns null for a missing best listing', async () => {
     const { HttpError } = await import('../../indexer/http');
     const fetchJson = (async (url: string) => {

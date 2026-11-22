@@ -1,0 +1,48 @@
+---
+// A click-to-load window onto glyphoras.art gardens: the poster and `enter the garden ↗` load the start garden in
+// place; the field below loads any holder's garden (an address or an ENS name) in the same window. Nothing loads on a
+// page visit. The iframe is built in src/scripts/garden-window.ts with the third-party embed sandbox.
+interface Props { garden: { base: string; start: string; poster: string }; title: string }
+const { garden, title } = Astro.props;
+---
+<div class="garden" data-garden data-base={garden.base} data-start={garden.start} data-title={title}>
+  <div class="stage">
+    <button class="poster" type="button">
+      <img src={garden.poster} alt="" decoding="async" />
+      <span class="who k lower">{garden.start}</span>
+      <span class="enter">enter the garden ↗</span>
+    </button>
+  </div>
+  <form class="visit" novalidate>
+    <label class="k" for="garden-who">a holder's garden</label>
+    <div class="row">
+      <input id="garden-who" name="who" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="address or ens" />
+      <button type="submit">visit ↗</button>
+    </div>
+    <p class="hint f" role="status" aria-live="polite"></p>
+  </form>
+  <noscript><a class="hit" href={garden.base + garden.start} target="_blank" rel="noopener">enter the garden ↗</a></noscript>
+</div>
+<style>
+  .garden { margin: 0 0 34px; max-width: 1100px; }
+  .stage { position: relative; background: #050505; aspect-ratio: 16 / 10; overflow: hidden; }
+  .poster { position: absolute; inset: 0; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: #050505; color: inherit; font: inherit; text-transform: inherit; cursor: pointer; }
+  .poster img { width: 100%; height: 100%; object-fit: cover; opacity: .72; transition: opacity .6s ease; }
+  .poster:hover img, .poster:focus-visible img { opacity: 1; }
+  .poster:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+  .who { position: absolute; left: 14px; top: 12px; color: var(--fg); opacity: .8; }
+  .enter { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; background: #000; color: var(--fg); border: 1px solid var(--dot); white-space: nowrap; }
+  .poster:hover .enter, .poster:focus-visible .enter { background: var(--fg); color: #000; }
+  .stage :global(.frame) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #050505; }
+  .visit { margin: 14px 0 0; max-width: 560px; }
+  .visit label { display: block; margin: 0 0 6px; }
+  .row { display: flex; gap: 8px; }
+  .row input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; background: #000; color: var(--fg); border: 1px solid var(--dot); font: inherit; text-transform: none; }
+  .row input:focus-visible { outline: 1px solid var(--fg); outline-offset: 2px; }
+  .row button { min-height: 44px; padding: 0 16px; background: #000; color: var(--fg); border: 1px solid var(--dot); font: inherit; cursor: pointer; white-space: nowrap; }
+  .row button:hover, .row button:focus-visible { background: var(--fg); color: #000; }
+  .hint { min-height: 1.4em; margin: 6px 0 0; }
+  @media (max-width: 767px) { .stage { aspect-ratio: 4 / 5; } }
+  @media (prefers-reduced-motion: reduce) { .poster img { transition: none; } }
+</style>
+<script src="../scripts/garden-window.ts"></script>

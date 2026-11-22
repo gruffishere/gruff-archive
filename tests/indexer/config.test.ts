@@ -45,9 +45,9 @@ describe('parseConfig', () => {
 });
 
 describe('loadConfig (real file)', () => {
-  it('has 20 index collections, with OVVN in experiments', () => {
+  it('has 21 index collections (Glyphoras since 2026-11-22), with OVVN in experiments', () => {
     const c = loadConfig();
-    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(20);
+    expect(c.collections.filter((x) => x.section === 'index')).toHaveLength(21);
     expect(c.collections.filter((x) => x.section === 'experiments').map((x) => x.code).sort()).toEqual(['OVN']);
     expect(c.collections.find((x) => x.code === '366')?.tokenIds).toEqual(['366']);
   });
@@ -135,12 +135,51 @@ collections:
   it('tags the real collections as the artist set them (2026-11-06)', () => {
     const cols = loadConfig().collections;
     const codes = (f: (c: (typeof cols)[number]) => boolean) => cols.filter(f).map((c) => c.code).sort();
-    expect(codes((c) => isGenerative(c))).toEqual(['FCT', 'GRT', 'OVN', 'PHG']);
-    expect(codes((c) => isOnChain(c))).toEqual(['FCT', 'OVN', 'PHG']);
+    expect(codes((c) => isGenerative(c))).toEqual(['FCT', 'GLY', 'GRT', 'OVN', 'PHG']);
+    expect(codes((c) => isOnChain(c))).toEqual(['FCT', 'GLY', 'OVN', 'PHG']);
     expect(codes((c) => c.techniques.includes('glitch art'))).toEqual(['366', 'OVS', 'PUL', 'SUB']);
-    expect(codes((c) => c.techniques.includes('code art'))).toEqual(['FCT', 'OVN', 'PHG']);
+    expect(codes((c) => c.techniques.includes('code art'))).toEqual(['FCT', 'GLY', 'OVN', 'PHG']);
     expect(codes((c) => !!c.tools?.includes('touchdesigner'))).toEqual(['PUL']);
     expect(codes((c) => !!c.tools?.includes('pixel grid'))).toEqual(['FCT']);
     expect(codes((c) => !!c.tools?.includes('photoshop'))).toEqual(['ANT', 'BLS', 'CLB', 'ESS', 'GFT', 'ICN', 'LSO', 'ONE', 'PPC', 'PUL', 'RES', 'SLV', 'SOA', 'VBS']);
+  });
+});
+
+describe('parseConfig: live works, work links and garden windows (Glyphoras, 2026-11-22)', () => {
+  const add = (extra: string) => yaml.replace('techniques: [vector illustration]', `techniques: [vector illustration]\n    ${extra}`);
+
+  it('accepts liveWork: chain and nothing else', () => {
+    expect(parseConfig(yaml).collections[0].liveWork).toBeUndefined();
+    expect(parseConfig(add('liveWork: chain')).collections[0].liveWork).toBe('chain');
+    expect(() => parseConfig(add('liveWork: stored'))).toThrow();
+  });
+
+  it('accepts https work link templates only', () => {
+    const c = parseConfig(add('workLinks: [{ label: its garden, url: "https://glyphoras.art/garden/{owner}" }, { label: record, url: "https://glyphoras.art/record/{id}" }]'));
+    expect(c.collections[0].workLinks).toEqual([
+      { label: 'its garden', url: 'https://glyphoras.art/garden/{owner}' },
+      { label: 'record', url: 'https://glyphoras.art/record/{id}' },
+    ]);
+    expect(() => parseConfig(add('workLinks: [{ label: x, url: "javascript:alert({id})" }]'))).toThrow();
+  });
+
+  it('accepts a garden window with an https base, a start and a site poster', () => {
+    const c = parseConfig(add('garden: { base: "https://glyphoras.art/garden/", start: gruffdzn.eth, poster: /c/glyphoras/garden.webp }'));
+    expect(c.collections[0].garden).toEqual({ base: 'https://glyphoras.art/garden/', start: 'gruffdzn.eth', poster: '/c/glyphoras/garden.webp' });
+    expect(() => parseConfig(add('garden: { base: "http://glyphoras.art/garden/", start: a.eth, poster: /p.webp }'))).toThrow();
+    expect(() => parseConfig(add('garden: { base: "https://glyphoras.art/garden/", start: a.eth, poster: "https://x/p.webp" }'))).toThrow();
+  });
+
+  it('accepts osEvents: sales and nothing else', () => {
+    expect(parseConfig(yaml).collections[0].osEvents).toBeUndefined();
+    expect(parseConfig(add('osEvents: sales')).collections[0].osEvents).toBe('sales');
+    expect(() => parseConfig(add('osEvents: listings'))).toThrow();
+  });
+
+  it('gives Glyphoras its live work, links and garden in the real config', () => {
+    const g = loadConfig().collections.find((c) => c.slug === 'glyphoras')!;
+    expect(g).toMatchObject({ code: 'GLY', contract: '0x3cc3e703da2c4b529c17efd1f1afd61dec0216af', standard: 'erc721', section: 'index', metadata: 'chain', liveWork: 'chain', osEvents: 'sales' });
+    expect(g.garden?.start).toBe('gruffdzn.eth');
+    expect(g.workLinks?.map((l) => l.label)).toEqual(['its garden', 'record']);
   });
 });

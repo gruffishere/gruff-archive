@@ -116,7 +116,8 @@ async function loadOpenSea(cfg: CollectionConfig, ctx: PipelineContext): Promise
   const evPath = join(ctx.rawDir, 'os-events', `${cfg.slug}.json`);
   const lsPath = join(ctx.rawDir, 'os-listings', `${cfg.slug}.json`);
   const metaPath = join(ctx.rawDir, 'os-meta', `${cfg.slug}.json`);
-  const cachedEvents = readJson<ArchiveEvent[]>(evPath, []);
+  const salesOnly = cfg.osEvents === 'sales';
+  const cachedEvents = readJson<ArchiveEvent[]>(evPath, []).filter((e) => !salesOnly || e.kind === 'sale');
   const cachedListings = new Map(readJson<Listing[]>(lsPath, []).map((l) => [l.tokenId, l]));
   const cachedMeta = readJson<{ floorWei: string | null; description: string | null }>(metaPath, { floorWei: null, description: null });
   const cached = (status: OsResult['status']): OsResult => ({ status, events: cachedEvents, listings: cachedListings, ...cachedMeta });
@@ -136,7 +137,7 @@ async function loadOpenSea(cfg: CollectionConfig, ctx: PipelineContext): Promise
       for (const id of cfg.tokenIds) {
         for await (const raw of os.nftEvents(cfg.contract, id, after)) {
           const e = normalizeOsEvent(raw, cfg.contract);
-          if (e) byId.set(e.id, e);
+          if (e && (!salesOnly || e.kind === 'sale')) byId.set(e.id, e);
         }
         const best = await os.bestListing(slug, id);
         const n = best && normalizeListing(best, cfg.contract);
@@ -144,9 +145,9 @@ async function loadOpenSea(cfg: CollectionConfig, ctx: PipelineContext): Promise
       }
       floorWei = listingList.length ? listingList.map((l) => BigInt(l.priceWei)).reduce((a, b) => (a < b ? a : b)).toString() : null;
     } else {
-      for await (const raw of os.events(slug, after)) {
+      for await (const raw of os.events(slug, after, salesOnly ? ['sale'] : undefined)) {
         const e = normalizeOsEvent(raw, cfg.contract);
-        if (e) byId.set(e.id, e);
+        if (e && (!salesOnly || e.kind === 'sale')) byId.set(e.id, e);
       }
       for await (const raw of os.listings(slug)) {
         const n = normalizeListing(raw, cfg.contract);
@@ -227,7 +228,8 @@ export async function loadMedia(cfg: CollectionConfig, metas: Map<string, TokenM
       }
     }
     let animation: StoredMedia | null = null;
-    if (m.animation && (isHtmlAnimation(m.animation) || (m.animation !== m.image && !isImageUrl(m.animation)))) {
+    // A live work is played from the contract on the site, so its (large, changing) page is never copied here.
+    if (cfg.liveWork !== 'chain' && m.animation && (isHtmlAnimation(m.animation) || (m.animation !== m.image && !isImageUrl(m.animation)))) {
       const stored = await safe(m.animation);
       if (stored && (stored.kind === 'html' || stored.kind === 'video')) animation = stored;
       else if (stored?.kind === 'svg' && !isUsedAsImage(m.animation)) {

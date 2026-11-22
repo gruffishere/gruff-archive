@@ -39,24 +39,27 @@ export interface OpenSea {
   slug(contract: Address): Promise<string | null>;
   collection(slug: string): Promise<{ description: string | null }>;
   floorWei(slug: string): Promise<string | null>;
-  events(slug: string, afterUnix: number): AsyncGenerator<OsRawEvent>;
+  events(slug: string, afterUnix: number, kinds?: OsEventKind[]): AsyncGenerator<OsRawEvent>;
   nftEvents(contract: Address, tokenId: string, afterUnix: number): AsyncGenerator<OsRawEvent>;
   listings(slug: string): AsyncGenerator<OsRawListing>;
   bestListing(slug: string, tokenId: string): Promise<OsRawListing | null>;
   nftImageUrl(contract: Address, tokenId: string): Promise<string | null>;
 }
 
+/** The OpenSea event types the archive reads; a collection may ask for sales alone (CollectionConfig.osEvents). */
+export type OsEventKind = 'sale' | 'listing';
+const ALL_KINDS: OsEventKind[] = ['sale', 'listing'];
+
 export const ethToWei = (eth: number) => (BigInt(Math.round(eth * 1e9)) * 1_000_000_000n).toString();
 
 export function createOpenSea(fetchJson: FetchJson, apiKey: string): OpenSea {
   const init = { headers: { 'x-api-key': apiKey } };
 
-  async function* eventPages(base: string, afterUnix: number): AsyncGenerator<OsRawEvent> {
+  async function* eventPages(base: string, afterUnix: number, kinds: OsEventKind[] = ALL_KINDS): AsyncGenerator<OsRawEvent> {
     let next: string | null = null;
     do {
       const u = new URL(base);
-      u.searchParams.append('event_type', 'sale');
-      u.searchParams.append('event_type', 'listing');
+      for (const k of kinds) u.searchParams.append('event_type', k);
       u.searchParams.set('after', String(afterUnix));
       u.searchParams.set('limit', '50');
       if (next) u.searchParams.set('next', next);
@@ -80,8 +83,8 @@ export function createOpenSea(fetchJson: FetchJson, apiKey: string): OpenSea {
       const floor = r.total?.floor_price;
       return floor == null || floor <= 0 ? null : ethToWei(floor);
     },
-    events(slug, afterUnix) {
-      return eventPages(`${OS}/events/collection/${slug}`, afterUnix);
+    events(slug, afterUnix, kinds) {
+      return eventPages(`${OS}/events/collection/${slug}`, afterUnix, kinds);
     },
     nftEvents(contract, tokenId, afterUnix) {
       return eventPages(`${OS}/events/chain/ethereum/contract/${contract}/nfts/${tokenId}`, afterUnix);

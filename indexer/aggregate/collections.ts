@@ -14,6 +14,12 @@ export interface CollectionOut {
   platform: CollectionConfig['platform'];
   platformUrl: string | null;
   links: { label: string; url: string }[];
+  /** 'chain': the site plays the live work straight from the contract (nothing stored); else null. */
+  liveWork: 'chain' | null;
+  /** Extra per-work links, URL templates with {id} and {owner}. */
+  workLinks: { label: string; url: string }[];
+  /** The collection page's click-to-load window (Glyphoras gardens), else null. */
+  garden: { base: string; start: string; poster: string } | null;
   section: CollectionConfig['section'];
   techniques: string[];
   tools: string[];
@@ -64,6 +70,9 @@ export function buildCollection(i: {
     platform: i.cfg.platform,
     platformUrl: i.cfg.platformUrl ?? null,
     links: i.cfg.links ?? [],
+    liveWork: i.cfg.liveWork ?? null,
+    workLinks: i.cfg.workLinks ?? [],
+    garden: i.cfg.garden ?? null,
     section: i.cfg.section,
     techniques: i.cfg.techniques,
     tools: i.cfg.tools ?? [],

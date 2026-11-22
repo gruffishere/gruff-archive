@@ -189,6 +189,15 @@ describe('buildCollection', () => {
     const c = buildCollection({ cfg: { ...cfg, links }, artist: ARTIST, year: 2023, tokens: buildTokens(inputs), balances: inputs.balances, floorWei: null, osDescription: null, staleSince: null });
     expect(c.links).toEqual(links);
   });
+
+  it('carries a live work, work links and a garden window, and defaults to none', () => {
+    const plain = buildCollection({ cfg, artist: ARTIST, year: 2023, tokens: buildTokens(inputs), balances: inputs.balances, floorWei: null, osDescription: null, staleSince: null });
+    expect(plain).toMatchObject({ liveWork: null, workLinks: [], garden: null });
+    const workLinks = [{ label: 'record', url: 'https://glyphoras.art/record/{id}' }];
+    const garden = { base: 'https://glyphoras.art/garden/', start: 'gruffdzn.eth', poster: '/c/glyphoras/garden.webp' };
+    const c = buildCollection({ cfg: { ...cfg, liveWork: 'chain', workLinks, garden }, artist: ARTIST, year: 2023, tokens: buildTokens(inputs), balances: inputs.balances, floorWei: null, osDescription: null, staleSince: null });
+    expect(c).toMatchObject({ liveWork: 'chain', workLinks, garden });
+  });
 });
 
 describe('originals of OpenSea fallback images', () => {

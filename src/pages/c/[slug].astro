@@ -9,6 +9,7 @@ import { chooseMedia } from '../../lib/media';
 import { mintingText } from '../../lib/label';
 import CollectionLinks from '../../components/CollectionLinks.astro';
 import RoomEmbed from '../../components/RoomEmbed.astro';
+import GardenWindow from '../../components/GardenWindow.astro';
 import { trailerEmbed } from '../../lib/rooms';
 import { isEditions } from '../../../indexer/tags';
 import { stillSrc } from '../../lib/media';
@@ -38,6 +39,7 @@ const span = c.lastMint && c.lastMint.slice(0, 4) !== firstYear(c) ? `${firstYea
       {c.floorWei && <div class="lr"><span class="l">floor</span><span class="v">{formatEth(c.floorWei)}</span></div>}
     </div>
     {trailer && <div class="trailer"><RoomEmbed src={trailer} title={`${c.title} trailer`} cover={trailerCover} label="play ↗" /></div>}
+    {c.garden && <GardenWindow garden={c.garden} title={`${c.title} garden`} />}
     <div class:list={['works', layout]}>
       {tokens.map((t, i) => (
         <a class="work" href={workPath(c.slug, t.id)}>

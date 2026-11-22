@@ -45,6 +45,18 @@ export async function resolveChainMetas(
     persisted.set(id, { key: metaKey(cache[id].meta), fetchedAt: Date.parse(e.fetchedAt) || 0 });
   }
   const touched = new Set<string>();
+  // A live work (Glyphoras) is played from the contract by the site: its page is never kept here, even when an older
+  // cache still holds it (that one is rewritten without it).
+  const liveOnly = cfg.liveWork === 'chain';
+  const noLivePage = (m: ChainEntry['meta']): ChainEntry['meta'] => (liveOnly && m?.animation ? { ...m, animation: null } : m);
+  let stripped = false;
+  for (const [id, e] of Object.entries(cache)) {
+    const m = noLivePage(e.meta);
+    if (m !== e.meta) {
+      cache[id] = { ...e, meta: m };
+      stripped = true;
+    }
+  }
   // A cache written before the slim format (plain big data URIs, animation repeating the image) is migrated even with nothing to fetch.
   const legacy = Object.values(stored).some((e) => !!e.meta && ((e.meta.image?.startsWith('data:') && e.meta.image.length >= 512) || (e.meta.animation?.startsWith('data:') && e.meta.animation.length >= 512) || (e.meta.animation !== null && e.meta.animation === e.meta.image)));
   const lastTransfer = new Map<string, string>();
@@ -59,7 +71,7 @@ export async function resolveChainMetas(
     try {
       const uri = await readTokenUri(ctx.rpc, cfg.contract, id);
       streak = 0;
-      const meta = parseTokenUriJson(uri);
+      const meta = noLivePage(parseTokenUriJson(uri));
       cache[id] = { meta, fetchedAt: now().toISOString() };
       touched.add(id);
       if (meta) fetched++;
@@ -76,7 +88,7 @@ export async function resolveChainMetas(
     }
   }
   if (streak >= MAX_CONSECUTIVE_FAILURES) ctx.log('  tokenURI: too many consecutive failures, stopping (Blockscout/cached values used for the rest)');
-  if (touched.size || legacy) {
+  if (touched.size || legacy || stripped) {
     const packed = Object.fromEntries(Object.entries(cache).map(([id, e]) => [id, packEntry(e)]));
     const t = now().getTime();
     const changed = [...touched].some((id) => {
@@ -84,7 +96,7 @@ export async function resolveChainMetas(
       // A new or different meta, or a refreshed entry whose saved fetchedAt had expired (persist it so it is not refetched again).
       return !prev || prev.key !== metaKey(cache[id].meta) || t - prev.fetchedAt >= MAX_AGE_MS;
     });
-    if (changed || legacy) writeJsonAtomic(path, packed);
+    if (changed || legacy || stripped) writeJsonAtomic(path, packed);
   }
 
   const out = new Map<string, TokenMeta>();
@@ -92,7 +104,8 @@ export async function resolveChainMetas(
   for (const [id, m] of metas) {
     const c = cache[id]?.meta;
     if (c) chain++;
-    out.set(id, c ? { tokenId: id, name: c.name ?? m.name, description: c.description ?? m.description, image: c.image ?? m.image, animation: c.animation ?? m.animation } : m);
+    const animation = liveOnly ? null : (c?.animation ?? m.animation);
+    out.set(id, c ? { tokenId: id, name: c.name ?? m.name, description: c.description ?? m.description, image: c.image ?? m.image, animation } : { ...m, animation });
   }
   ctx.log(`  on-chain metadata: ${chain}/${metas.size} tokens (${fetched} fetched, ${failed} failed)`);
   return out;
