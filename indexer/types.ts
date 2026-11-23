@@ -36,6 +36,8 @@ export interface CollectionConfig {
   liveWork?: 'chain';
   /** `sales`: take only sales from OpenSea events, no listing events (bots relisted Glyphoras ~500k times in four days). */
   osEvents?: 'sales';
+  /** The collection had a free mint phase: a mint whose payment is confirmed as nothing stores priceWei '0' and reads "free". */
+  freeMints?: true;
   /** Extra links on each work label: URL templates with {id} and {owner}. */
   workLinks?: { label: string; url: string }[];
   /** A click-to-load window on the collection page: base + an address or ENS, starting at `start`. */
@@ -82,7 +84,7 @@ export interface TokenMeta {
 export interface MintInfo {
   at: string;
   txHash: string;
-  priceWei: string | null; // per unit; null when nothing was paid
+  priceWei: string | null; // per unit; null when nothing was paid or the payment is unknown; '0' a confirmed free mint (freeMints)
   primary: boolean; // true when priceWei was filled from the artist's first sale
 }
 

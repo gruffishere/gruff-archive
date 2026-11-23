@@ -59,7 +59,8 @@ export function heldFor(sinceIso: string, now: Date): string {
 export const eventLabel = (kind: EventKind, quantity: number) => (quantity > 1 ? `${kind} ×${quantity}` : kind);
 
 export function mintValue(mint: { priceWei: string | null; primary: boolean }): string {
-  if (mint.priceWei && mint.priceWei !== '0') return formatEth(mint.priceWei) ?? '—';
+  if (mint.priceWei === '0') return 'free'; // a confirmed free mint (CollectionConfig.freeMints) or a free primary sale
+  if (mint.priceWei) return formatEth(mint.priceWei) ?? '—';
   return mint.primary ? 'free' : '—';
 }
 

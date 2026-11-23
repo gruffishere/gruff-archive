@@ -191,6 +191,34 @@ describe('processCollection with osEvents: sales', () => {
   });
 });
 
+// 2026-11-23: Glyphoras' first works were a free mint. A mint whose payment is known to be nothing reads "free";
+// one whose lookup failed stays unknown.
+describe('processCollection with freeMints', () => {
+  const t = (id: string, tx: string): RawTransfer => ({ contract: '0xabc', tokenId: id, from: ZERO, to: '0xa', fromEns: null, toEns: null, value: '1', txHash: tx, logIndex: 0, blockNumber: Number(id), timestamp: '2026-11-18T15:00:00.000Z' });
+  const seed = (dir: string) => {
+    mkdirSync(join(dir, 'raw', 'transfers'), { recursive: true });
+    writeFileSync(join(dir, 'raw', 'transfers', 'test.json'), JSON.stringify([t('1', '0xfree'), t('2', '0xpaid'), t('3', '0xunknown')]));
+  };
+  const fetchJson = (async (url: string) => {
+    if (url.includes('/transactions/')) throw new Error('HTTP 503');
+    return { items: [], next_page_params: null };
+  }) as unknown as FetchJson;
+
+  it('stores a confirmed zero payment as 0 and leaves a failed lookup unknown', async () => {
+    const { ctx, dir } = ctxWith({ fetchJson, txValues: { '0xfree': '0', '0xpaid': '5500000000000000' } });
+    seed(dir);
+    const st = await processCollection({ ...cfg, freeMints: true }, ctx);
+    expect(['1', '2', '3'].map((id) => st.mints.get(id)?.priceWei)).toEqual(['0', '5500000000000000', null]);
+  });
+
+  it('leaves zero payments unknown without the setting', async () => {
+    const { ctx, dir } = ctxWith({ fetchJson, txValues: { '0xfree': '0' } });
+    seed(dir);
+    const st = await processCollection(cfg, ctx);
+    expect(st.mints.get('1')?.priceWei).toBeNull();
+  });
+});
+
 describe('loadMedia OpenSea fallback at full size', () => {
   const small = 'https://i2c.seadn.io/ethereum/0xabc/p.png';
   const full = `${small}?w=2000`;
