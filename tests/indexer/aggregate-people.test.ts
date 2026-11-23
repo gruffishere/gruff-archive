@@ -92,6 +92,15 @@ describe('buildKeepers', () => {
     expect(keepers[1].mask).toBe('10');
   });
 
+  it('does not count a free mint as a piece bought from the artist', () => {
+    const free = (c: CollectionConfig, transfers: RawTransfer[]) => {
+      const x = collection(c, transfers);
+      return { ...x, tokens: x.tokens.map((tk) => ({ ...tk, mint: tk.mint && { ...tk.mint, priceWei: '0' } })) };
+    };
+    const k = buildKeepers({ artist: ARTIST, ens: new Map(), indexOrder: ['VBS'], collections: [free(cfg('VBS', 'vibes'), vbsTransfers)] });
+    expect(k.find((x) => x.address === A)?.fromArtist).toEqual({ pieces: 0, paidWei: '0' });
+  });
+
   it('names the earliest piece acquired from the artist, with its price', () => {
     expect(keepers[0].firstFromArtist).toEqual({ slug: 'vibes', tokenId: '1', at: '2023-01-15T00:00:00.000Z', priceWei: '20' });
   });

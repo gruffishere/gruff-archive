@@ -15,7 +15,8 @@ describe('format', () => {
     expect(mintValue({ priceWei: '100000000000000000', primary: true })).toBe('0.1 Ξ');
     expect(mintValue({ priceWei: '0', primary: true })).toBe('free');
     expect(mintValue({ priceWei: null, primary: true })).toBe('free');
-    expect(mintValue({ priceWei: '0', primary: false })).toBe('—');
+    // '0' is a mint whose payment was confirmed as nothing (a free phase, CollectionConfig.freeMints): 2026-11-23
+    expect(mintValue({ priceWei: '0', primary: false })).toBe('free');
     expect(mintValue({ priceWei: null, primary: false })).toBe('—');
   });
   it('formats usd from eth price', () => {

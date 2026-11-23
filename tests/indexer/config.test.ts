@@ -170,6 +170,12 @@ describe('parseConfig: live works, work links and garden windows (Glyphoras, 202
     expect(() => parseConfig(add('garden: { base: "https://glyphoras.art/garden/", start: a.eth, poster: "https://x/p.webp" }'))).toThrow();
   });
 
+  it('accepts freeMints: true and nothing else', () => {
+    expect(parseConfig(yaml).collections[0].freeMints).toBeUndefined();
+    expect(parseConfig(add('freeMints: true')).collections[0].freeMints).toBe(true);
+    expect(() => parseConfig(add('freeMints: false'))).toThrow();
+  });
+
   it('accepts osEvents: sales and nothing else', () => {
     expect(parseConfig(yaml).collections[0].osEvents).toBeUndefined();
     expect(parseConfig(add('osEvents: sales')).collections[0].osEvents).toBe('sales');
@@ -178,7 +184,7 @@ describe('parseConfig: live works, work links and garden windows (Glyphoras, 202
 
   it('gives Glyphoras its live work, links and garden in the real config', () => {
     const g = loadConfig().collections.find((c) => c.slug === 'glyphoras')!;
-    expect(g).toMatchObject({ code: 'GLY', contract: '0x3cc3e703da2c4b529c17efd1f1afd61dec0216af', standard: 'erc721', section: 'index', metadata: 'chain', liveWork: 'chain', osEvents: 'sales' });
+    expect(g).toMatchObject({ code: 'GLY', contract: '0x3cc3e703da2c4b529c17efd1f1afd61dec0216af', standard: 'erc721', section: 'index', metadata: 'chain', liveWork: 'chain', osEvents: 'sales', freeMints: true });
     expect(g.garden?.start).toBe('gruffdzn.eth');
     expect(g.workLinks?.map((l) => l.label)).toEqual(['its garden', 'record']);
   });

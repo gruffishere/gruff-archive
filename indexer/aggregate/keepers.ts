@@ -91,7 +91,7 @@ export function buildKeepers(i: {
         noteFirstFromArtist(d, { slug: c.cfg.slug, tokenId: e.tokenId, at: e.timestamp, priceWei: e.priceWei });
       } else if (e.kind === 'mint') {
         const price = paidMint.get(e.tokenId);
-        if (!price) continue;
+        if (!price || price === '0') continue; // a free mint is not a piece bought from the artist
         const d = get(e.to);
         const paid = BigInt(price) * BigInt(e.quantity);
         d.fromArtistPieces += e.quantity;

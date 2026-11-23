@@ -274,6 +274,8 @@ export async function processCollection(cfg: CollectionConfig, ctx: PipelineCont
     }
   };
   const mints = await mintInfo(transfers, getTxValue);
+  // a free phase: only a payment looked up and cached as 0 counts, a failed lookup (also read as 0) stays unknown
+  if (cfg.freeMints) for (const [id, m] of mints) if (m.priceWei === null && ctx.txValues[m.txHash] === '0') mints.set(id, { ...m, priceWei: '0' });
   const os = await loadOpenSea(cfg, ctx);
   const auctionPath = join(ctx.rawDir, 'auctions', `${cfg.slug}.json`);
   const auctionCache = readJson<AuctionCache>(auctionPath, { sales: {} });
